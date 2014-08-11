@@ -1,0 +1,329 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"BOO",
+				"BOOTMGR_ELF"
+			],
+			[
+				"pro",
+				"proto	Prototype"
+			],
+			[
+				"es",
+				"exists"
+			],
+			[
+				"va",
+				"valid"
+			],
+			[
+				"vald",
+				"validator"
+			],
+			[
+				"de",
+				"details"
+			],
+			[
+				"tar",
+				"target"
+			],
+			[
+				"con",
+				"convertToArray"
+			],
+			[
+				"make",
+				"makeInterface"
+			],
+			[
+				"BO",
+				"BOOTMGR_ELF"
+			],
+			[
+				"boot",
+				"BOOTMGR"
+			],
+			[
+				"e",
+				"everything"
+			],
+			[
+				"b",
+				"BIN32"
+			],
+			[
+				"CC",
+				"CC64_FLAG"
+			],
+			[
+				"re",
+				"reduceStack"
+			],
+			[
+				"safe",
+				"safeEval"
+			],
+			[
+				"ta",
+				"target"
+			],
+			[
+				"targ",
+				"target"
+			],
+			[
+				"l",
+				"log"
+			],
+			[
+				"targe",
+				"targetEntry"
+			],
+			[
+				"boo",
+				"BOOTER"
+			],
+			[
+				"fil",
+				"fileMap"
+			],
+			[
+				"regex",
+				"regex"
+			],
+			[
+				"target",
+				"targetRegex"
+			],
+			[
+				"exec",
+				"execSync"
+			],
+			[
+				"arg",
+				"arguments"
+			],
+			[
+				"func",
+				"function"
+			],
+			[
+				"eval",
+				"evalMatch"
+			],
+			[
+				"prot",
+				"prototype"
+			],
+			[
+				"EN",
+				"ENOENT"
+			],
+			[
+				"err",
+				"errConvertion"
+			]
+		]
+	},
+	"buffers":
+	[
+	],
+	"build_system": "Packages/Makefile/Make.sublime-build",
+	"command_palette":
+	{
+		"height": 200.0,
+		"selected_items":
+		[
+			[
+				"pack",
+				"Package Control: Install Package"
+			],
+			[
+				"install",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 416.0
+	},
+	"console":
+	{
+		"height": 153.0
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/home/gary/Application/Dev/make.js/make.js",
+		"/home/gary/Application/Dev/make.js/sync.js",
+		"/home/gary/Application/Dev/make.js/rm.js",
+		"/home/gary/SakiProject/src/makefile",
+		"/home/gary/SakiProject/src/makescript",
+		"/home/gary/SakiProject/src/library/makescript",
+		"/home/gary/SakiProject/src/bootmgr/makescript",
+		"/home/gary/Application/Dev/make.js/safeeval.js",
+		"/home/gary/.config/sublime-text-2/Packages/JsFormat/JsFormat.sublime-settings",
+		"/home/gary/.config/sublime-text-2/Packages/User/JsFormat.sublime-settings",
+		"/home/gary/Application/Dev/make.js/makescript",
+		"/home/gary/Application/Dev/make.js/getopt.js",
+		"/home/gary/Application/NodeMake/getopt.js",
+		"/home/gary/Application/NodeMake/safeeval.js",
+		"/home/gary/Application/NodeMake/sync.js",
+		"/home/gary/Application/NodeMake/makescript",
+		"/home/gary/Application/NodeMake/make.js",
+		"/home/gary/SakiProject/saki.sublime-project",
+		"/home/gary/SakiProject/src/bootmgr/atapi.c",
+		"/home/gary/SakiProject/src/bootmgr/atapi.o",
+		"/home/gary/桌面/hostExtension/manifest.json",
+		"/home/gary/桌面/hostExtension/hosts.js",
+		"/home/gary/桌面/hostExtension/bg.js",
+		"/home/gary/.config/sublime-text-2/Packages/Default/Preferences.sublime-settings",
+		"/home/gary/桌面/Sublime Text 2/sublime_text"
+	],
+	"find":
+	{
+		"height": 35.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+			""
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"targetRegex",
+			"bind",
+			"}));\n",
+			"bind",
+			"rm",
+			"quite",
+			"console.log",
+			"catch",
+			"console.error",
+			"makeSureFileMapEntry",
+			"throw",
+			"argument",
+			"    \n",
+			"startsWith",
+			".=",
+			"console",
+			"\n    ",
+			"split",
+			"printStackTrace",
+			"  \n",
+			";\n",
+			"console.log(e);",
+			"o",
+			"arg",
+			"throw",
+			"  \n",
+			"dir",
+			"()\n",
+			"();",
+			"    \n",
+			"argv",
+			"tbl",
+			"parseArgs",
+			"ATA_LBA_MID",
+			"3342"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": true,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"sheets":
+			[
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 0.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 124.0
+	},
+	"replace":
+	{
+		"height": 0.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true
+}

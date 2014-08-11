@@ -1,0 +1,9 @@
+var isoOutput = "boot.iso";
+
+function makeISO(booter, output) {
+	exec("xorriso -as mkisofs -R -J -c boot/bootcat -b " + booter + " -no-emul-boot -boot-load-size 4 -o " + output + " mount");
+}
+
+setDefault("everything");
+
+phony("everything", isoOutput);
