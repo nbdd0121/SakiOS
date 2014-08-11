@@ -1,5 +1,4 @@
-.gitignore
-
 boot.iso
 mount/*
 mount
+*.sublime*
