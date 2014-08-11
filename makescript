@@ -43,4 +43,6 @@ target(isoDir + bootsect, ["boot.asm", nasmRaw]);
 if (!exists(isoDir)) {
 	mkdir(isoDir);
 	mkdir(isoDir + "/boot");
+	mkdir(isoDir + "/saki");
+	mkdir(isoDir + "/saki/bootmgr");
 }

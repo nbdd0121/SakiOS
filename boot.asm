@@ -61,11 +61,6 @@ main:
 
     mov     dl, [driveNum]
     jmp     0:BUFFER
-    ; Print information
-    mov     esi, BUFFER
-    call    print
-    cli
-    hlt
 ;end main
 
 
