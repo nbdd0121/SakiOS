@@ -1,9 +1,46 @@
+/* Target constants */
 var isoOutput = "boot.iso";
+var isoDir = "mount/";
+var bootsect = "boot/bootsect.bin"
 
-function makeISO(booter, output) {
+/* Helper functions */
+function makeISO(output, booter) {
 	exec("xorriso -as mkisofs -R -J -c boot/bootcat -b " + booter + " -no-emul-boot -boot-load-size 4 -o " + output + " mount");
+}
+
+function nasmRaw(dest, src) {
+	exec("nasm " + join(src) + " -o " + dest);
+}
+
+function qemu(cdrom, debug) {
+	exec("qemu-system-x86_64 -cdrom " + cdrom + (debug ? " -s -S" : ""));
 }
 
 setDefault("everything");
 
 phony("everything", isoOutput);
+
+phony("clean", function() {
+	rm([isoOutput, isoDir + bootsect], ["r", "f"]);
+});
+
+phony("all", ["clean", "everything"]);
+
+phony("run", ["everything", $(qemu, isoOutput, false)]);
+
+phony("debug", ["everything", $(qemu, isoOutput, true)]);
+
+target(isoOutput, [isoDir + bootsect,
+	function(target, dep) {
+		makeISO(target, bootsect);
+	}
+]);
+
+target(isoDir + bootsect, ["boot.asm", nasmRaw]);
+
+/* Check whether the mount folder exists.
+ * If not, create a new one */
+if (!exists(isoDir)) {
+	mkdir(isoDir);
+	mkdir(isoDir + "/boot");
+}
