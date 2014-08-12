@@ -5,15 +5,28 @@ var bootsect = "boot/bootsect.bin"
 
 /* Helper functions */
 function makeISO(output, booter) {
-	exec("xorriso -as mkisofs -R -J -c boot/bootcat -b " + booter + " -no-emul-boot -boot-load-size 4 -o " + output + " mount");
+	exec("xorriso", [
+		"-as", "mkisofs", "-R", "-J", "-c", "boot/bootcat",
+		"-b", booter, "-no-emul-boot", "-boot-load-size", "4",
+		"-o", output, "mount"
+	]);
 }
 
 function nasmRaw(dest, src) {
-	exec("nasm " + join(src) + " -o " + dest);
+	exec("nasm", src.concat(["-o", dest]));
 }
 
 function qemu(cdrom, debug) {
-	exec("qemu-system-x86_64 -cdrom " + cdrom + (debug ? " -s -S" : ""));
+	var args = ["-cdrom", cdrom];
+	if (debug)
+		args.push("-s", "-S");
+	exec("qemu-system-x86_64", args);
+}
+
+function hexdump() {
+	exec("hexdump -C boot.iso |less", null, {
+		newWindow: true
+	});
 }
 
 setDefault("everything");
@@ -29,6 +42,8 @@ phony("all", ["clean", "everything"]);
 phony("run", ["everything", $(qemu, isoOutput, false)]);
 
 phony("debug", ["everything", $(qemu, isoOutput, true)]);
+
+phony("dumpiso", $(hexdump));
 
 target(isoOutput, [isoDir + bootsect,
 	function(target, dep) {
