@@ -1,0 +1,69 @@
+/* Target constants */
+var output = "../mount/saki/bootmgr/bootmgr.bin"
+var elfOutput = "../bin/bootmgr/bootmgr.ske";
+var objOutput = [];
+
+ls(".").forEach(function(file) {
+	var ext = file.extension();
+	if (ext == ".c" || ext == ".asm") {
+		objOutput.push("../bin/bootmgr/" + file.extension(".o"));
+	}
+});
+
+var cCompiler = "clang";
+var cFlags = (
+	"-m32 -Os -c -g -fno-builtin -fno-stack-protector " +
+	"-fno-signed-char -Wimplicit -ffreestanding -mno-red-zone -mno-mmx -mno-sse -mno-sse2 " +
+	"-mno-sse3 -mno-3dnow -Wall"
+).split(" ");
+
+/* Helper functions */
+function objcopy(format, target, dep) {
+	exec("objcopy", [
+		"-O", format
+	].concat(dep, target));
+}
+
+function ld(target, dep) {
+	exec("ld", [
+		"-o", target,
+		"-melf_i386",
+		"-T", "ldscript",
+		"-e", "_start",
+		"--gc-sections"
+	].concat(dep));
+}
+
+function nasm(target, dep) {
+	exec("nasm", ["-felf32"].concat(dep, "-o", target));
+}
+
+function cc(target, dep) {
+	exec(cCompiler, cFlags.concat(dep, "-o", target));
+}
+
+/* Targets */
+setDefault("everything");
+
+phony("everything", output);
+
+phony("clean", function() {
+	rm([output, elfOutput].concat(objOutput), ["r", "f"]);
+});
+
+phony("all", ["clean", "everything"]);
+
+target(output, [elfOutput, $(objcopy, "binary")]);
+
+target(elfOutput, objOutput.concat(ld));
+
+targetRegex(/^.*\.o$/, $depExist, function(target) {
+	return target.replace("../bin/bootmgr/", "").extension(".asm");
+}, nasm);
+
+targetRegex(/^.*\.o$/, $depExist, function(target) {
+	return target.replace("../bin/bootmgr/", "").extension(".c");
+}, cc);
+
+mkdirIfNotExist("../bin");
+mkdirIfNotExist("../bin/bootmgr");

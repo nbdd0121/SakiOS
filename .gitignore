@@ -2,3 +2,5 @@ boot.iso
 mount/*
 mount
 *.sublime*
+bin
+bin/*

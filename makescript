@@ -1,14 +1,15 @@
 /* Target constants */
 var isoOutput = "boot.iso";
 var isoDir = "mount/";
-var bootsect = "boot/bootsect.bin"
+var bootsect = "boot/bootsect.bin";
+var bootmgr = "mount/saki/bootmgr/bootmgr.bin";
 
 /* Helper functions */
-function makeISO(output, booter) {
+function makeISO(output, dir, booter) {
 	exec("xorriso", [
 		"-as", "mkisofs", "-R", "-J", "-c", "boot/bootcat",
 		"-b", booter, "-no-emul-boot", "-boot-load-size", "4",
-		"-o", output, "mount"
+		"-o", output, dir
 	]);
 }
 
@@ -29,11 +30,13 @@ function hexdump() {
 	});
 }
 
+/* Targets */
 setDefault("everything");
 
 phony("everything", isoOutput);
 
 phony("clean", function() {
+	make("bootmgr", "clean");
 	rm([isoOutput, isoDir + bootsect], ["r", "f"]);
 });
 
@@ -43,21 +46,22 @@ phony("run", ["everything", $(qemu, isoOutput, false)]);
 
 phony("debug", ["everything", $(qemu, isoOutput, true)]);
 
-phony("dumpiso", $(hexdump));
+phony("dumpiso", hexdump);
 
-target(isoOutput, [isoDir + bootsect,
+target(isoOutput, [isoDir + bootsect, bootmgr,
 	function(target, dep) {
-		makeISO(target, bootsect);
+		makeISO(target, isoDir, bootsect);
 	}
 ]);
 
 target(isoDir + bootsect, ["boot.asm", nasmRaw]);
 
+target(bootmgr, ["bootmgr", $make("bootmgr")]);
+
 /* Check whether the mount folder exists.
  * If not, create a new one */
-if (!exists(isoDir)) {
-	mkdir(isoDir);
-	mkdir(isoDir + "/boot");
-	mkdir(isoDir + "/saki");
-	mkdir(isoDir + "/saki/bootmgr");
-}
+mkdirIfNotExist(isoDir);
+mkdirIfNotExist(isoDir + "/boot");
+mkdirIfNotExist(isoDir + "/saki");
+mkdirIfNotExist(isoDir + "/saki/bootmgr");
+mkdirIfNotExist("bin");
