@@ -1,3 +1,10 @@
+;
+; Entrance of boot manager. This segment of program
+; will initialize VBE and switch the system into protection mode.
+;
+; @author Gary Guo <nbdd0121@hotmail.com>
+;
+
 [bits   16]
 [global _start]
 [extern main]
@@ -150,7 +157,7 @@ Video_info:
 .bpp    db 0
 
 
-    
+
 
 
 

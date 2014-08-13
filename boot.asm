@@ -1,3 +1,9 @@
+;
+; Booter sector for cdrom and CDFS
+;
+; @author Gary Guo <nbdd0121@hotmail.com>
+;
+
 [org 7c00h]
 [bits   16]
 

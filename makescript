@@ -3,6 +3,21 @@ var isoOutput = "boot.iso";
 var isoDir = "mount/";
 var bootsect = "boot/bootsect.bin";
 var bootmgr = "mount/saki/bootmgr/bootmgr.bin";
+var libraries = [];
+
+ls("libs").forEach(function(f){
+	if(isDir("libs/"+f)){
+		libraries.push(f);
+	}
+});
+
+var libArchieve=libraries.map(function(lib){
+	return "bin/libs/"+lib+".a";
+});
+
+var libPath=libraries.map(function(lib){
+	return "libs/"+lib;
+});
 
 /* Helper functions */
 function makeISO(output, dir, booter) {
@@ -33,10 +48,13 @@ function hexdump() {
 /* Targets */
 setDefault("everything");
 
-phony("everything", isoOutput);
+phony("everything", libArchieve.concat(isoOutput));
 
 phony("clean", function() {
 	make("bootmgr", "clean");
+	libPath.forEach(function(lib){
+		make(lib, "clean");
+	});
 	rm([isoOutput, isoDir + bootsect], ["r", "f"]);
 });
 
@@ -56,7 +74,11 @@ target(isoOutput, [isoDir + bootsect, bootmgr,
 
 target(isoDir + bootsect, ["boot.asm", nasmRaw]);
 
-target(bootmgr, ["bootmgr", $make("bootmgr")]);
+target(bootmgr, libArchieve.concat(["bootmgr", $make("bootmgr")]));
+
+libPath.forEach(function(lib, id){
+	target(libArchieve[id], [lib, $make(lib)]);
+});
 
 /* Check whether the mount folder exists.
  * If not, create a new one */
