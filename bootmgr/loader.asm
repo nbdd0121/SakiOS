@@ -7,6 +7,8 @@
 
 [bits   16]
 [global _start]
+[global memMapEntryLen]
+[global memMapPtr]
 [extern main]
 
 ; Constants for debugging
@@ -97,6 +99,20 @@ _start:
 
 .noAcceptableMode:
 
+getAllMemMapEntries:
+    mov     ebx, 0
+    mov     di,  MemStruct
+
+.loop:
+    mov     eax, 0xE820
+    mov     ecx, 20
+    mov     edx, 0x534D4150
+    int     0x15
+    inc     byte [memMapEntryLen]
+    add     di,  20
+    test    ebx, ebx
+    jnz     .loop
+    
     ; Load GDT
     cli
     lgdt    [GDTPtr]
@@ -130,6 +146,8 @@ GDTPtr:
     dw GDT.end-GDT
     dd GDT
 
+MemStruct equ 0x500
+
 [bits 32]
 
 pmStart:
@@ -140,6 +158,8 @@ pmStart:
     mov     es, ax
     mov     ss, ax
     mov     esp, stackTop
+
+    finit
 
     call    main
 
@@ -156,7 +176,10 @@ Video_info:
 .bpl    dw 0
 .bpp    db 0
 
+memMapEntryLen db 0
 
+memMapPtr dq MemStruct
+; Use dq here to ensure both 32bit code and 64bit code can use it.
 
 
 
