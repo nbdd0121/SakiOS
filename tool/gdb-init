@@ -13,4 +13,6 @@ end
 
 add-symbol-file bin/bootmgr/bootmgr.ske 0x8000
 
-b getAllMemMapEntries
+
+
+

@@ -5,9 +5,12 @@
  */
 
 #include "c/stdint.h"
+#include "c/stdlib.h"
 #include "c/stdio.h"
 #include "mem-alloc/pageman.h"
+#include "mem-alloc/blockalloc.h"
 #include "asm/asm.h"
+
 
 #pragma pack(1)
 
@@ -29,7 +32,6 @@ static const char *typeName[] = {
 };
 
 #define PAGE_SIZE 4096
-
 
 /**
  * C code entrance.
@@ -53,6 +55,9 @@ void main(void) {
 
     pageman_t *man = NULL;
 
+    /* In the following algorithm, we will ignore memory over 0xFFFFFFFF,
+     * since currently we are in 32 bit mode without paging, therefore we
+     * have no way to make use of these memory */
     for (int i = 0; i < memMapEntryLen; i++) {
         memmap_entry_t *entry = &memMapPtr[i];
         if (entry->type == 1) {
@@ -73,8 +78,6 @@ void main(void) {
                         break;
                     }
                 }
-            } else {
-                //puts("[WARNING] MEM: Unable to handle more than 3 GiB memory.\n");
             }
         }
     }
@@ -84,18 +87,14 @@ void main(void) {
         disableCPU();
     }
 
+    allocator_t *allocator = allocator_create(man);
+
+    allocator_free(allocator, allocator_aligned_alloc(allocator, 1024, 1024));
+
     int i;
     for (i = 0; i < memMapEntryLen; i++) {
         memmap_entry_t *entry = &memMapPtr[i];
-        if (entry->base > 0xFFFFFFFF) {
-            // printf("%08X%08X %08X%08X %s\n",
-            //        (uint32_t)(entry->base >> 32),
-            //        (uint32_t)entry->base,
-            //        (uint32_t)(entry->limit >> 32),
-            //        (uint32_t)entry->limit,
-            //        typeName[entry->type - 1]
-            //       );
-        } else {
+        if (entry->base <= 0xFFFFFFFF) {
             printf("%08X %08X %s\n", (size_t)entry->base, (size_t)entry->limit,
                    typeName[entry->type - 1]);
         }
@@ -106,4 +105,5 @@ void main(void) {
 
 
 }
+
 

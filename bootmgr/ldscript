@@ -4,14 +4,15 @@ SECTIONS
 .text : { *(.text*) }
 .data : { *(.data*) }
 .rodata : { *(.rodata*) *(COMMON)}
-.bss : {*(.bss)}
+.bss : {*(.bss*)}
 .debug_info      0 : { *(.debug_info)  }
 .debug_line 0 : { *(.debug_line)  }
 .debug_abbrev   0 : { *(.debug_abbrev)}
 .debug_frame    0 : { *(.debug_frame) }
 .debug_str    0 : { *(.debug_str) }
 .debug_loc    0 : { *(.debug_loc) }
-.debug_range    0 : { *(.debug_range) }
-.debug_arrange    0 : { *(.debug_arrange) }
+.debug_ranges    0 : { *(.debug_ranges) }
+.debug_aranges    0 : { *(.debug_aranges) }
+.eh_frame 0: {*(.eh_frame*)}
 /DISCARD/ : { *.* }
 }

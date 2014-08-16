@@ -9,14 +9,7 @@
 
 #include "c/string.h"
 #include "mem-alloc/pageman.h"
-
-static inline size_t alignTo(size_t val, size_t alignment) {
-    return ((val - 1) / alignment + 1) * alignment;
-}
-
-static inline size_t alignDown(size_t val, size_t alignment) {
-    return val / alignment * alignment;
-}
+#include "util/alignment.h"
 
 enum {
     PAGE_SIZE = 4096,

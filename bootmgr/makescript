@@ -7,7 +7,8 @@ var depLibrary = [
   "lib-format",
   "generic-io",
   "text-video",
-  "lib-string"
+  "c-string",
+  "c-stdlib"
 ].map(function(name) {
   return "../bin/libs/" + name + ".a";
 });

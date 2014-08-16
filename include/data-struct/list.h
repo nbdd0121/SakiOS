@@ -21,7 +21,7 @@ static inline void list_empty(list_t *list) {
 }
 
 #define GET_LIST(str, name) (&(str)->name)
-#define GET_DATA(list, str, name) (str*)((size_t)list - offsetof(str, name))
+#define GET_DATA(list, str, name) ((str*)((size_t)list - offsetof(str, name)))
 
 #define list_add list_addLast
 
