@@ -1,3 +1,9 @@
+;
+; Booter sector for cdrom and CDFS
+;
+; @author Gary Guo <nbdd0121@hotmail.com>
+;
+
 [org 7c00h]
 [bits   16]
 
@@ -61,11 +67,6 @@ main:
 
     mov     dl, [driveNum]
     jmp     0:BUFFER
-    ; Print information
-    mov     esi, BUFFER
-    call    print
-    cli
-    hlt
 ;end main
 
 

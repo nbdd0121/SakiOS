@@ -1,0 +1,18 @@
+cd ..
+
+target remote localhost:1234
+set disassembly-flavor intel
+#display /i $pc
+define reg
+info reg
+end
+
+define ip
+disp/i $pc
+end
+
+add-symbol-file bin/bootmgr/bootmgr.ske 0x8000
+
+
+
+

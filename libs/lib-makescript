@@ -1,0 +1,59 @@
+var libName = process.cwd().filename();
+
+/* Target constants */
+var output = "../../bin/libs/" + libName + ".a";
+var objOutputPath = "../../bin/libs/" + libName + "/";
+var objOutput = [];
+
+ls(".").forEach(function(file) {
+	var ext = file.extension();
+	if (ext == ".c" || ext == ".asm") {
+		objOutput.push(objOutputPath + file.extension(".32.o"));
+	}
+});
+
+var cCompiler = "gcc";
+var cFlags = (
+	"-I ../../include/ " +
+	"-m32 -Os -c -g -fno-builtin -fno-stack-protector -ffunction-sections -fdata-sections " +
+	"-fno-signed-char -Wimplicit -ffreestanding -mno-red-zone -mno-mmx -mno-sse -mno-sse2 " +
+	"-mno-sse3 -mno-3dnow -Wall --std=c99"
+).split(" ");
+
+/* Helper functions */
+function ar(target, dep) {
+	exec("ar", ["-r", target].concat(dep));
+}
+
+function nasm(target, dep) {
+	exec("nasm", ["-felf32"].concat(dep, "-o", target));
+}
+
+function cc(target, dep) {
+	exec(cCompiler, cFlags.concat(dep, "-o", target));
+}
+
+/* Targets */
+setDefault("everything");
+
+phony("everything", output);
+
+phony("clean", function() {
+	rm(objOutput.concat(output), ["r", "f"]);
+});
+
+phony("all", ["clean", "everything"]);
+
+target(output, objOutput.concat(ar));
+
+targetRegex(/^.*\.o$/, $depExist, function(target) {
+	return target.replace(objOutputPath, "").extension(".asm");
+}, nasm);
+
+targetRegex(/^.*\.o$/, $depExist, function(target) {
+	return target.replace(objOutputPath, "").extension(".c");
+}, cc);
+
+mkdirIfNotExist("../../bin");
+mkdirIfNotExist("../../bin/libs");
+mkdirIfNotExist(objOutputPath);

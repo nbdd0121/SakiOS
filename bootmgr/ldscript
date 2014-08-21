@@ -1,0 +1,18 @@
+SECTIONS
+{
+. = 0x8000;
+.text : { *(.text*) }
+.data : { *(.data*) }
+.rodata : { *(.rodata*) *(COMMON)}
+.bss : {*(.bss*)}
+.debug_info      0 : { *(.debug_info)  }
+.debug_line 0 : { *(.debug_line)  }
+.debug_abbrev   0 : { *(.debug_abbrev)}
+.debug_frame    0 : { *(.debug_frame) }
+.debug_str    0 : { *(.debug_str) }
+.debug_loc    0 : { *(.debug_loc) }
+.debug_ranges    0 : { *(.debug_ranges) }
+.debug_aranges    0 : { *(.debug_aranges) }
+.eh_frame 0: {*(.eh_frame*)}
+/DISCARD/ : { *.* }
+}
