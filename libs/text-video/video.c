@@ -7,8 +7,8 @@
 #define CHAR_PER_LINE 80
 #define LINE_PER_SCREEN 25
 
-size_t x;
-size_t y;
+static size_t x;
+static size_t y;
 
 static inline size_t calcOffset(size_t x, size_t y) {
     return y * 160 + x * 2;
