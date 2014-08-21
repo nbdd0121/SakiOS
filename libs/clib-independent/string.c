@@ -7,6 +7,7 @@
 #include "c/stdint.h"
 #include "c/stddef.h"
 #include "c/string.h"
+#include "c/stdlib.h"
 
 void *memcpy(void *restrict dest, const void *restrict src, size_t count) {
     size_t i;
@@ -49,4 +50,26 @@ size_t strlen(const char *str) {
     size_t counter = 0;
     for (; *str; counter++, str++);
     return counter;
+}
+
+/**
+ * strdup - duplicate a string
+ *
+ * @comform SVr4, 4.3BSD, POSIX.1-2001
+ */
+char *strdup(const char *s) {
+    size_t len = strlen(s) + 1;
+    char *ret = malloc(len);
+    memcpy(ret, s, len);
+    return ret;
+}
+
+int strcmp(const char *s1, const char *s2) {
+    for (; *s2 != 0; s1++, s2++) {
+        int diff = *s1 - *s2;
+        if (diff != 0) {
+            return diff;
+        }
+    }
+    return *s1;
 }

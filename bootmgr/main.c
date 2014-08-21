@@ -7,10 +7,14 @@
 #include "c/stdint.h"
 #include "c/stdlib.h"
 #include "c/stdio.h"
+#include "c/assert.h"
+#include "c/string.h"
+
 #include "mem-alloc/pageman.h"
-#include "mem-alloc/blockalloc.h"
+#include "c-stdlib/malloc.h"
 #include "asm/asm.h"
 
+#include "vfs/vfs.h"
 
 #pragma pack(1)
 
@@ -74,22 +78,18 @@ void main(void) {
                     pageman_freeBlock(man, (void *)(size_t)entry->base, entry->limit);
                 } else {
                     man = pageman_create(NULL, maxAddr / PAGE_SIZE, (void *)(size_t)entry->base, entry->limit / PAGE_SIZE);
-                    if (!man) {
-                        break;
-                    }
+                    break;
                 }
             }
         }
     }
 
-    if (!man) {
-        puts("[ERROR] MEM: Out of memory");
-        disableCPU();
-    }
+    assert(man);
+    init_allocator(man);
 
-    allocator_t *allocator = allocator_create(man);
-
-    allocator_free(allocator, allocator_aligned_alloc(allocator, 1024, 1024));
+    memmap_entry_t *map = malloc(sizeof(memmap_entry_t) * memMapEntryLen);
+    memcpy(map, memMapPtr, sizeof(memmap_entry_t)*memMapEntryLen);
+    memMapPtr = map;
 
     int i;
     for (i = 0; i < memMapEntryLen; i++) {
@@ -101,9 +101,20 @@ void main(void) {
     }
 
     uint32_t spare = pageman_spare(man);
-    printf("%d GiB, %d MiB, %d KiB", spare / 1024 / 1024 / 1024, spare / 1024 / 1024 % 1024, spare / 1024 % 1024);
+    printf("%d GiB, %d MiB, %d KiB\n", spare / 1024 / 1024 / 1024, spare / 1024 / 1024 % 1024, spare / 1024 % 1024);
 
+    vfs_init();
+    vfs_mount("/", ramfs_create_fs());
+    vfs_lookup("/dev/stdout");
 
+    fs_node_t *root = vfs_lookup("/");
+    for (int i = 0;; i++) {
+        fs_node_t *node = vfs_readdir(root, i);
+        if (node == NULL) {
+            break;
+        }
+        printf("[%s]", node->name);
+    }
 }
 
 

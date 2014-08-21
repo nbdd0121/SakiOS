@@ -14,4 +14,10 @@
 int rand(void);
 void srand(unsigned int seed);
 
+void free(void *addr);
+void *malloc(size_t size);
+void *calloc(size_t nmemb, size_t size);
+void *realloc(void *addr, size_t size);
+void *aligned_alloc(size_t alignment, size_t size);
+
 #endif

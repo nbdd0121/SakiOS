@@ -3,17 +3,17 @@ var output = "../mount/saki/bootmgr/bootmgr.bin"
 var elfOutput = "../bin/bootmgr/bootmgr.ske";
 var objOutput = [];
 var depLibrary = [
-  "mem-alloc",
   "lib-format",
   "generic-io",
   "text-video",
-  "c-string",
-  "c-stdlib"
+  "c-stdlib",
+  "mem-alloc",
+  "clib-independent"
 ].map(function(name) {
   return "../bin/libs/" + name + ".a";
 });
 
-ls(".").forEach(function(file) {
+recursiveList(".").forEach(function(file) {
   var ext = file.extension();
   if (ext == ".c" || ext == ".asm") {
     objOutput.push("../bin/bootmgr/" + file.extension(".o"));
@@ -22,7 +22,7 @@ ls(".").forEach(function(file) {
 
 var cCompiler = "gcc";
 var cFlags = (
-  "-I ../include/ " +
+  "-I ../include/ -I ./ " +
   "-m32 -Os -c -g -fno-builtin -fno-stack-protector " +
   "-fno-signed-char -Wimplicit -ffreestanding -mno-red-zone -mno-mmx -mno-sse -mno-sse2 " +
   "-mno-sse3 -mno-3dnow -Wall --std=c99"
@@ -78,3 +78,4 @@ targetRegex(/^.*\.o$/, $depExist, function(target) {
 
 mkdirIfNotExist("../bin");
 mkdirIfNotExist("../bin/bootmgr");
+mkdirIfNotExist("../bin/bootmgr/vfs");

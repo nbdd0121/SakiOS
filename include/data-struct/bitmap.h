@@ -4,6 +4,9 @@
  * @author Gary Guo <nbdd0121@hotmail.com>
  */
 
+#ifndef DATA_STRUCT_BITMAP_H
+#define DATA_STRUCT_BITMAP_H
+
 #include "c/stddef.h"
 #include "c/stdbool.h"
 
@@ -33,3 +36,4 @@ static inline bool bitmap_set(bitmap_t *b, size_t index) {
     return !!ret;
 }
 
+#endif
