@@ -105,9 +105,10 @@ void main(void) {
 
     vfs_init();
     vfs_mount("/", ramfs_create_fs());
-    vfs_lookup("/dev/stdout");
+    vfs_mount("/dev/cdrom", ATAPI_init());
+    vfs_mount("/media/cdrom/", CDFS_create_fs(vfs_lookup("/dev/cdrom")));
 
-    fs_node_t *root = vfs_lookup("/");
+    fs_node_t *root = vfs_lookup("/media/cdrom/");
     for (int i = 0;; i++) {
         fs_node_t *node = vfs_readdir(root, i);
         if (node == NULL) {
@@ -115,6 +116,7 @@ void main(void) {
         }
         printf("[%s]", node->name);
     }
+
 }
 
 

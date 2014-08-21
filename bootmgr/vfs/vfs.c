@@ -3,8 +3,7 @@
 #include "c/stdbool.h"
 #include "vfs.h"
 
-fs_node_t *root;
-fs_op_t empty = {
+static fs_op_t empty = {
     .read = NULL,
     .write = NULL,
     .readdir = NULL,
@@ -13,23 +12,33 @@ fs_op_t empty = {
     .mkdir = NULL
 };
 
-uint32_t vfs_read(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer) {
+static fs_node_t root = {
+    .name = "",
+    .op = &empty,
+    .pointer = NULL,
+    .length = 0,
+    .type = DIR
+};
+
+uint64_t vfs_read(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer) {
     if (node->pointer) {
         return vfs_read(node->pointer, offset, size, buffer);
     }
     if (node->op->read) {
         return node->op->read(node, offset, size, buffer);
     }
+    assert(0);
     return 0;
 }
 
-uint32_t vfs_write(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer) {
+uint64_t vfs_write(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer) {
     if (node->pointer) {
         return vfs_write(node->pointer, offset, size, buffer);
     }
     if (node->op->write) {
         return node->op->write(node, offset, size, buffer);
     }
+    assert(0);
     return 0;
 }
 
@@ -51,8 +60,16 @@ fs_node_t *vfs_finddir(fs_node_t *node, char *name) {
     if (node->op->finddir) {
         return node->op->finddir(node, name);
     }
-    assert(0);
+
+    int id = 0;
+    fs_node_t *child;
+    while ((child = vfs_readdir(node, id++)) != NULL) {
+        if (strcmp(child->name, name) == 0) {
+            return child;
+        }
+    }
     return NULL;
+
 }
 
 fs_node_t *vfs_create(fs_node_t *node, char *name) {
@@ -103,7 +120,11 @@ static fs_node_t *lookup(fs_node_t *node, char *path) {
 
 fs_node_t *vfs_lookup(char *path) {
     assert(path[0] == '/');
-    return lookup(root, path + 1);
+    fs_node_t *node = lookup(&root, path + 1);
+    while (node->pointer) {
+        node = node->pointer;
+    }
+    return node;
 }
 
 void vfs_mount(char *path, fs_node_t *node) {
@@ -113,10 +134,4 @@ void vfs_mount(char *path, fs_node_t *node) {
 }
 
 void vfs_init(void) {
-    root = malloc(sizeof(fs_node_t));
-    root->name = strdup("");
-    root->op = &empty;
-    root->pointer = NULL;
-    root->length = 0;
-    root->type = DIR;
 }

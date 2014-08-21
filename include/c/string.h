@@ -15,6 +15,7 @@ void *memset(void *s, int c, size_t n);
 
 size_t strlen(const char *s);
 char *strdup(const char *s);
+char *strndup(const char *s, size_t n);
 
 int strcmp(const char *s1, const char *s2);
 

@@ -64,6 +64,17 @@ char *strdup(const char *s) {
     return ret;
 }
 
+char *strndup(const char *s, size_t n) {
+    size_t len = strlen(s);
+    if (len > n) {
+        len = n;
+    }
+    char *ret = malloc(len + 1);
+    memcpy(ret, s, len);
+    ret[len] = 0;
+    return ret;
+}
+
 int strcmp(const char *s1, const char *s2) {
     for (; *s2 != 0; s1++, s2++) {
         int diff = *s1 - *s2;

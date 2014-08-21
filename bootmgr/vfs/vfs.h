@@ -15,8 +15,8 @@
 typedef struct struct_fs_node_t fs_node_t;
 
 typedef struct struct_fs_op_t {
-    uint32_t (*read)(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
-    uint32_t (*write)(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
+    uint64_t (*read)(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
+    uint64_t (*write)(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
     fs_node_t *(*readdir)(fs_node_t *node, uint32_t index);
     fs_node_t *(*finddir)(fs_node_t *node, char *name);
     fs_node_t *(*create)(fs_node_t *node, char *name);
@@ -38,13 +38,11 @@ enum fs_node_type_t {
     SYMLINK = 2,
     BLOCK = 3,
     CHAR = 4,
-    PIPE = 5,
-    /* Mounted can coexist with above types */
-    MOUNTED = 8
+    PIPE = 5
 };
 
-uint32_t vfs_read(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
-uint32_t vfs_write(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
+uint64_t vfs_read(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
+uint64_t vfs_write(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
 fs_node_t *vfs_readdir(fs_node_t *node, uint32_t index);
 fs_node_t *vfs_finddir(fs_node_t *node, char *name);
 fs_node_t *vfs_create(fs_node_t *node, char *name);
@@ -52,5 +50,9 @@ fs_node_t *vfs_mkdir(fs_node_t *node, char *name);
 fs_node_t *vfs_lookup(char *path);
 void vfs_mount(char *path, fs_node_t *node);
 void vfs_init(void);
+
+fs_node_t *ramfs_create_fs(void);
+fs_node_t *ATAPI_init(void);
+fs_node_t *CDFS_create_fs(fs_node_t *cdrom);
 
 #endif

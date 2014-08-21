@@ -10,10 +10,10 @@
 
 #include "util/alignment.h"
 
-#include "ramfs.h"
+#include "vfs.h"
 
-fs_node_t *ramfs_create(fs_node_t *parent, char *name);
-fs_node_t *ramfs_mkdir(fs_node_t *parent, char *name);
+static fs_node_t *ramfs_create(fs_node_t *parent, char *name);
+static fs_node_t *ramfs_mkdir(fs_node_t *parent, char *name);
 static fs_node_t *ramfs_readdir(fs_node_t *parent, uint32_t index);
 static fs_node_t *ramfs_finddir(fs_node_t *parent, char *name);
 
@@ -21,7 +21,7 @@ static fs_op_t ramfs_op = {
     .read = NULL,
     .write = NULL,
     .readdir = ramfs_readdir,
-    .finddir = ramfs_finddir,
+    .finddir = NULL,
     .create = ramfs_create,
     .mkdir = ramfs_mkdir
 };
@@ -51,17 +51,6 @@ static fs_node_t *ramfs_readdir(fs_node_t *parent, uint32_t index) {
     return node->dir[index];
 }
 
-static fs_node_t *ramfs_finddir(fs_node_t *parent, char *name) {
-    int id = 0;
-    fs_node_t *node;
-    while ((node = ramfs_readdir(parent, id++)) != NULL) {
-        if (strcmp(node->name, name) == 0) {
-            return node;
-        }
-    }
-    return NULL;
-}
-
 static fs_node_t *ramfs_createNode(fs_node_t *parent, char *name, uint8_t type) {
     fs_node_t *ret = malloc(sizeof(fs_node_t));
     ret->name = strdup(name);
@@ -87,11 +76,11 @@ static fs_node_t *ramfs_createNode(fs_node_t *parent, char *name, uint8_t type) 
     return ret;
 }
 
-fs_node_t *ramfs_create(fs_node_t *parent, char *name) {
+static fs_node_t *ramfs_create(fs_node_t *parent, char *name) {
     return ramfs_createNode(parent, name, FILE);
 }
 
-fs_node_t *ramfs_mkdir(fs_node_t *parent, char *name) {
+static fs_node_t *ramfs_mkdir(fs_node_t *parent, char *name) {
     return ramfs_createNode(parent, name, DIR);
 }
 
