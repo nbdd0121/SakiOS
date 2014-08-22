@@ -67,6 +67,9 @@ typedef struct {
     dir_rec_t dirent;
 } cdfs_data_t;
 
+#define BUFFER_SIZE 2048
+#define NODE_BUFFER_SIZE 128
+
 static uint64_t read(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer);
 static fs_node_t *readdir(fs_node_t *node, uint32_t index);
 
@@ -78,6 +81,9 @@ static fs_op_t ops = {
     .create = NULL,
     .mkdir = NULL
 };
+
+static char *buffer = NULL;
+static fs_node_t **nodeBuffer = NULL;
 
 static uint64_t read(fs_node_t *node, uint64_t offset, uint64_t size, void *buffer) {
     assert(node->type != DIR);
@@ -95,13 +101,11 @@ static fs_node_t *readdir(fs_node_t *node, uint32_t index) {
     assert(node->type == DIR);
     cdfs_data_t *data = node->dataPtr;
     if (data->cache == NULL) {
-        char *buffer = malloc(data->dirent.sizeL);
-        fs_node_t **nodeBuffer = (fs_node_t **)buffer;
+        assert(data->dirent.sizeL <= BUFFER_SIZE);
         size_t id = 0;
 
-        vfs_read(data->cdrom, data->dirent.lbaL * 2048, data->dirent.sizeL, buffer);
-        for (dir_rec_t *rec = (dir_rec_t *)buffer;
-                rec->length != 0 && (size_t)rec < (size_t)buffer + data->dirent.sizeL;
+        vfs_read(data->cdrom, data->dirent.lbaL * 2048, 2048, buffer);
+        for (dir_rec_t *rec = (dir_rec_t *)buffer; rec->length != 0;
                 rec = (dir_rec_t *)((size_t)rec + rec->length)) {
             if (*rec->fileName < 2) {
                 /* 0 -> Current directory
@@ -146,13 +150,23 @@ static fs_node_t *readdir(fs_node_t *node, uint32_t index) {
             nodeBuffer[id++] = node;
         }
         nodeBuffer[id++] = NULL;
+
+        assert(id <= NODE_BUFFER_SIZE);
+
         data->cache = malloc(id * sizeof(fs_node_t *));
         memcpy(data->cache, nodeBuffer, id * sizeof(fs_node_t *));
+
+        //free(buffer);
     }
     return data->cache[index];
 }
 
 fs_node_t *CDFS_create_fs(fs_node_t *cdrom) {
+    if (buffer == NULL) {
+        buffer = malloc(BUFFER_SIZE);
+        nodeBuffer = malloc(NODE_BUFFER_SIZE * sizeof(fs_node_t *));
+    }
+
     cdfs_data_t *data = malloc(sizeof(cdfs_data_t));
     vfs_read(cdrom, 0x8000 + offsetof(prim_vol_desc_t, rootDir), sizeof(dir_rec_t), &data->dirent);
     data->cdrom = cdrom;

@@ -36,6 +36,7 @@ static const char *typeName[] = {
 };
 
 #define PAGE_SIZE 4096
+#define AVAIL_MEM_START (32*0x100000)
 
 /**
  * C code entrance.
@@ -47,13 +48,17 @@ void main(void) {
     putchar('\f');
 
     uint32_t maxAddr = 0;
-    {
-        memmap_entry_t *entry = &memMapPtr[memMapEntryLen - 1];
-        uint64_t limit = entry->base + entry->limit;
-        if (limit > 0xFFFFFFFF) {
-            maxAddr = 0xFFFFFFFF;
-        } else {
-            maxAddr = (uint32_t)limit;
+    /* We assume the memory maps are arranged in ascending order */
+    for (int i = memMapEntryLen - 1; i >= 0; i--) {
+        memmap_entry_t *entry = &memMapPtr[i];
+        if (entry->type == 1) {
+            uint64_t limit = entry->base + entry->limit;
+            if (limit > 0xFFFFFFFF) {
+                maxAddr = 0xFFFFFFFF;
+            } else {
+                maxAddr = (uint32_t)limit;
+            }
+            break;
         }
     }
 
@@ -74,10 +79,20 @@ void main(void) {
                 /* We assume no memory block will cross 0xFFFFFFFF,
                  * because normally APIC memory area will locate
                  * between 0xFFFC000 - 0xFFFFFFFF. */
+                size_t base = entry->base;
+                size_t limit = entry->limit;
+                if (base < AVAIL_MEM_START) {
+                    if (base + limit <= AVAIL_MEM_START) {
+                        continue;
+                    } else {
+                        limit -= AVAIL_MEM_START - base;
+                        base = AVAIL_MEM_START;
+                    }
+                }
                 if (man) {
-                    pageman_freeBlock(man, (void *)(size_t)entry->base, entry->limit);
+                    pageman_freeBlock(man, (void *)(size_t)base, limit);
                 } else {
-                    man = pageman_create(NULL, maxAddr / PAGE_SIZE, (void *)(size_t)entry->base, entry->limit / PAGE_SIZE);
+                    man = pageman_create(NULL, maxAddr / PAGE_SIZE, (void *)(size_t)base, limit / PAGE_SIZE);
                     break;
                 }
             }
@@ -87,6 +102,7 @@ void main(void) {
     assert(man);
     init_allocator(man);
 
+    /* Duplicate the memory map, move it to a safer location */
     memmap_entry_t *map = malloc(sizeof(memmap_entry_t) * memMapEntryLen);
     memcpy(map, memMapPtr, sizeof(memmap_entry_t)*memMapEntryLen);
     memMapPtr = map;
@@ -101,9 +117,13 @@ void main(void) {
     }
 
     uint32_t spare = pageman_spare(man);
-    printf("%d GiB, %d MiB, %d KiB\n", spare / 1024 / 1024 / 1024, spare / 1024 / 1024 % 1024, spare / 1024 % 1024);
+    printf("%d GiB, %d MiB, %d KiB\n",
+           spare / 1024 / 1024 / 1024,
+           spare / 1024 / 1024 % 1024,
+           spare / 1024 % 1024);
 
     vfs_init();
+
     vfs_mount("/", ramfs_create_fs());
     vfs_mount("/dev/cdrom", ATAPI_init());
     vfs_mount("/media/cdrom/", CDFS_create_fs(vfs_lookup("/dev/cdrom")));
@@ -116,6 +136,12 @@ void main(void) {
         }
         printf("[%s]", node->name);
     }
+
+    spare = pageman_spare(man);
+    printf("%d GiB, %d MiB, %d KiB",
+           spare / 1024 / 1024 / 1024,
+           spare / 1024 / 1024 % 1024,
+           spare / 1024 % 1024);
 
 }
 

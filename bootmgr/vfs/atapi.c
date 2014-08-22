@@ -2,6 +2,7 @@
 #include "c/stdbool.h"
 #include "c/assert.h"
 #include "c/string.h"
+#include "c/stdlib.h"
 #include "util/alignment.h"
 #include "util/endian.h"
 #include "asm/asm.h"
@@ -34,7 +35,33 @@ typedef struct {
     int dev;
 } atapi_data_t;
 
+static uint64_t read(fs_node_t *node, uint64_t _offset, uint64_t _size, void *buffer);
+
 static int dev[2] = { -1, -1};
+
+static atapi_data_t device = {
+    .bus = ATA_SECONDARY,
+    .dev = ATA_MASTER
+};
+
+static fs_op_t op = {
+    .read = read,
+    .write = NULL,
+    .readdir = NULL,
+    .finddir = NULL,
+    .create = NULL,
+    .mkdir = NULL
+};
+static fs_node_t node = {
+    .name = "cdrom",
+    .op = &op,
+    .pointer = NULL,
+    .dataPtr = &device,
+    //.length will be set by code
+    .type = BLOCK
+};
+
+static char *buf = NULL;
 
 static void ATA_delay(atapi_data_t *data, int delay) {
     for (; delay; delay--)
@@ -81,7 +108,6 @@ static bool ATAPI_identify(atapi_data_t *data) {
     if (!ATA_waitDevice(data)) {
         return false;
     }
-    uint16_t buf[256];
     repReadPort16(data->bus + ATA_DATA, buf, 512);
 
     // Maybe we can do something here.
@@ -138,7 +164,6 @@ static bool ATAPI_readSector(atapi_data_t *data, char *buffer, uint32_t lba) {
 }
 
 static uint64_t read(fs_node_t *node, uint64_t _offset, uint64_t _size, void *buffer) {
-    static char buf[2048];
     uint32_t offset = (uint32_t)_offset;
     uint32_t size = (uint32_t)_size;
     atapi_data_t *data = node->dataPtr;
@@ -168,42 +193,9 @@ static uint64_t read(fs_node_t *node, uint64_t _offset, uint64_t _size, void *bu
     return size;
 }
 
-static atapi_data_t device;
-static fs_op_t op = {
-    .read = read,
-    .write = NULL,
-    .readdir = NULL,
-    .finddir = NULL,
-    .create = NULL,
-    .mkdir = NULL
-};
-static fs_node_t node = {
-    .name = "cdrom",
-    .op = &op,
-    .pointer = NULL,
-    .dataPtr = &device,
-    //.length will be set by code
-    .type = BLOCK
-};
-
 fs_node_t *ATAPI_init(void) {
-    device.bus = ATA_PRIMARY;
-    device.dev = ATA_MASTER;
-    if (ATAPI_identify(&device)) {
-        printf("ATAPI: Primary Master");
-        node.length = ATAPI_readCapacity(&device);
-        return &node;
-    }
+    buf = malloc(2048);
 
-    device.dev = ATA_SLAVE;
-    if (ATAPI_identify(&device)) {
-        printf("ATAPI: Primary Slave");
-        node.length = ATAPI_readCapacity(&device);
-        return &node;
-    }
-
-    device.bus = ATA_SECONDARY;
-    device.dev = ATA_MASTER;
     if (ATAPI_identify(&device)) {
         printf("ATAPI: Secondary Master");
         node.length = ATAPI_readCapacity(&device);
@@ -216,6 +208,21 @@ fs_node_t *ATAPI_init(void) {
         node.length = ATAPI_readCapacity(&device);
         return &node;
     }
+
+    device.bus = ATA_PRIMARY;
+    if (ATAPI_identify(&device)) {
+        printf("ATAPI: Primary Slave");
+        node.length = ATAPI_readCapacity(&device);
+        return &node;
+    }
+
+    device.dev = ATA_MASTER;
+    if (ATAPI_identify(&device)) {
+        printf("ATAPI: Primary Master");
+        node.length = ATAPI_readCapacity(&device);
+        return &node;
+    }
+
     assert(0);
     return 0;
 }

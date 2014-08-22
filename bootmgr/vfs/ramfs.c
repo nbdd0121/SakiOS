@@ -15,7 +15,6 @@
 static fs_node_t *ramfs_create(fs_node_t *parent, char *name);
 static fs_node_t *ramfs_mkdir(fs_node_t *parent, char *name);
 static fs_node_t *ramfs_readdir(fs_node_t *parent, uint32_t index);
-static fs_node_t *ramfs_finddir(fs_node_t *parent, char *name);
 
 static fs_op_t ramfs_op = {
     .read = NULL,
