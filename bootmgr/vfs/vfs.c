@@ -1,7 +1,7 @@
 #include "c/string.h"
 #include "c/assert.h"
 #include "c/stdbool.h"
-#include "vfs.h"
+#include "bootmgr/vfs.h"
 
 static fs_op_t empty = {
     .read = NULL,
@@ -131,6 +131,16 @@ void vfs_mount(char *path, fs_node_t *node) {
     fs_node_t *p = vfs_lookup(path);
     assert(p && p->pointer == NULL);
     p->pointer = node;
+    printf("[INFO] [VFS]: Mount %s on %s\n", node->name, path);
+}
+
+void vfs_mount_fs(char *target, char *source, fs_node_t *(*fs)(fs_node_t *)) {
+    fs_node_t *src = vfs_lookup(source);
+    fs_node_t *dst = vfs_lookup(target);
+    assert(src && dst && dst->pointer == NULL);
+    fs_node_t *mounted = fs(src);
+    dst->pointer = mounted;
+    printf("[INFO] [VFS]: Mount %s on %s using %s\n", source, target, mounted->name);
 }
 
 void vfs_init(void) {

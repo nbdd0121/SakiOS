@@ -3,7 +3,7 @@
 #include "c/stdlib.h"
 #include "c/assert.h"
 #include "c/string.h"
-#include "vfs.h"
+#include "bootmgr/vfs.h"
 
 typedef struct {
     uint8_t length;
@@ -173,7 +173,7 @@ fs_node_t *CDFS_create_fs(fs_node_t *cdrom) {
     data->cache = NULL;
 
     fs_node_t *node = malloc(sizeof(fs_node_t));
-    node->name = "";
+    node->name = "cdfs";
     node->op = &ops;
     node->pointer = NULL;
     node->dataPtr = data;

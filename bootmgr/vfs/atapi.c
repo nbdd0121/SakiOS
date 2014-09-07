@@ -6,7 +6,7 @@
 #include "util/alignment.h"
 #include "util/endian.h"
 #include "asm/asm.h"
-#include "vfs.h"
+#include "bootmgr/vfs.h"
 
 #pragma pack(1)
 
@@ -122,13 +122,12 @@ static int ATAPI_packet(atapi_data_t *data, int byteCount, char *packet, int siz
     writePort8(data->bus + ATA_LBA_HIGH, byteCount >> 8);
     writePort8(data->bus + ATA_COMMAND, 0xA0);
     if (!ATA_waitDevice(data)) {
-        printf("Error happened when sent PACKET command");
+        // printf("[ERROR] [ATAPI] Error happened when sent PACKET command");
         return -1;
     }
     repWritePort16(data->bus + ATA_DATA, packet, size);
     if (!ATA_waitDevice(data)) {
-        printf("Error happended when packet sent");
-        printf("(%x)", readPort8(data->bus + ATA_ERROR));
+        // printf("[ERROR] [ATAPI] Error happended when packet sent (code %x)", readPort8(data->bus + ATA_ERROR));
         return -1;
     }
     return readPort8(data->bus + ATA_LBA_MID) | (readPort8(data->bus + ATA_LBA_HIGH) << 8);
@@ -147,7 +146,7 @@ static uint32_t ATAPI_readCapacity(atapi_data_t *data) {
     buffer[1] = endian32(buffer[1]);
 
     uint32_t size = (buffer[0] + 1) * buffer[1];
-    printf("\r\n\tCapacity: %dKB, %dKiB\n", size / 1000, size / 1024);
+    printf("[INFO] [ATAPI] Capacity: %dKB, %dKiB\n", size / 1000, size / 1024);
     return size;
 }
 
@@ -197,28 +196,28 @@ fs_node_t *ATAPI_init(void) {
     buf = malloc(2048);
 
     if (ATAPI_identify(&device)) {
-        printf("ATAPI: Secondary Master");
+        printf("[INFO] [ATAPI]: Secondary Master detected\n");
         node.length = ATAPI_readCapacity(&device);
         return &node;
     }
 
     device.dev = ATA_SLAVE;
     if (ATAPI_identify(&device)) {
-        printf("ATAPI: Secondary Slave");
+        printf("[INFO] [ATAPI]: Secondary Slave detected\n");
         node.length = ATAPI_readCapacity(&device);
         return &node;
     }
 
     device.bus = ATA_PRIMARY;
     if (ATAPI_identify(&device)) {
-        printf("ATAPI: Primary Slave");
+        printf("[INFO] [ATAPI] Primary Slave detected\n");
         node.length = ATAPI_readCapacity(&device);
         return &node;
     }
 
     device.dev = ATA_MASTER;
     if (ATAPI_identify(&device)) {
-        printf("ATAPI: Primary Master");
+        printf("[INFO] [ATAPI] Primary Master detected\n");
         node.length = ATAPI_readCapacity(&device);
         return &node;
     }

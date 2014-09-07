@@ -14,7 +14,7 @@
 #include "c-stdlib/malloc.h"
 #include "asm/asm.h"
 
-#include "vfs/vfs.h"
+#include "bootmgr/vfs.h"
 
 #pragma pack(1)
 
@@ -37,6 +37,10 @@ static const char *typeName[] = {
 
 #define PAGE_SIZE 4096
 #define AVAIL_MEM_START (32*0x100000)
+
+void add_symbol(char *, void *);
+void link_elf32(void *);
+int exec_elf32(void *);
 
 /**
  * C code entrance.
@@ -107,41 +111,63 @@ void main(void) {
     memcpy(map, memMapPtr, sizeof(memmap_entry_t)*memMapEntryLen);
     memMapPtr = map;
 
+    /* Print all memory entries */
     int i;
     for (i = 0; i < memMapEntryLen; i++) {
         memmap_entry_t *entry = &memMapPtr[i];
         if (entry->base <= 0xFFFFFFFF) {
-            printf("%08X %08X %s\n", (size_t)entry->base, (size_t)entry->limit,
+            if (entry->type > 5 || entry->type == 0) {
+                entry->type = 2;
+            }
+            printf("[INFO] [MEM]: %08X %08X %s\n", (size_t)entry->base, (size_t)entry->limit,
                    typeName[entry->type - 1]);
         }
     }
 
-    uint32_t spare = pageman_spare(man);
-    printf("%d GiB, %d MiB, %d KiB\n",
-           spare / 1024 / 1024 / 1024,
-           spare / 1024 / 1024 % 1024,
-           spare / 1024 % 1024);
-
+    /* Create VFS and mount necessary file systems */
     vfs_init();
 
     vfs_mount("/", ramfs_create_fs());
     vfs_mount("/dev/cdrom", ATAPI_init());
-    vfs_mount("/media/cdrom/", CDFS_create_fs(vfs_lookup("/dev/cdrom")));
+    vfs_mount_fs("/media/cdrom/", "/dev/cdrom", CDFS_create_fs);
 
-    fs_node_t *root = vfs_lookup("/media/cdrom/");
-    for (int i = 0;; i++) {
-        fs_node_t *node = vfs_readdir(root, i);
-        if (node == NULL) {
-            break;
-        }
-        printf("[%s]", node->name);
-    }
-
-    spare = pageman_spare(man);
-    printf("%d GiB, %d MiB, %d KiB",
+    /* Display currently available memories */
+    size_t spare = pageman_spare(man);
+    printf("[INFO] [MEM]: Available Memory: %d GiB, %d MiB, %d KiB\n",
            spare / 1024 / 1024 / 1024,
            spare / 1024 / 1024 % 1024,
            spare / 1024 % 1024);
+
+    /* Load the sakiload */
+    fs_node_t *exec = vfs_lookup("/media/cdrom/saki/bootmgr/js.ske");
+    void *content = malloc(exec->length);
+    vfs_read(exec, 0, exec->length, content);
+
+    /* Here we manually add symbols instead of import a symbol file from fs,
+     * in order to, first, enable the gc-sections, and second, to control the
+     * symbols visible to applications */
+#define EXPORT(n) add_symbol(#n, n);
+    EXPORT(printf);
+
+    /* VFS */
+    EXPORT(vfs_read);
+    EXPORT(vfs_write);
+    EXPORT(vfs_readdir);
+    EXPORT(vfs_finddir);
+    EXPORT(vfs_create);
+    EXPORT(vfs_mkdir);
+    EXPORT(vfs_lookup);
+    EXPORT(vfs_mount);
+    EXPORT(vfs_mount_fs);
+
+    /* Symbol Table */
+    EXPORT(add_symbol);
+    EXPORT(link_elf32);
+    EXPORT(exec_elf32);
+
+
+    link_elf32(content);
+    exec_elf32(content);
 
 }
 
