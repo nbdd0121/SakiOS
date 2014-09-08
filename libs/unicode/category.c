@@ -1,7 +1,3 @@
-
-
-
-#include "c/stdint.h"
 #include "c/assert.h"
 
 #include "unicode/category.h"

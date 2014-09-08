@@ -152,7 +152,7 @@ void main(void) {
     EXPORT(printf);
 
     /* VFS */
-    /*EXPORT(vfs_read);
+    EXPORT(vfs_read);
     EXPORT(vfs_write);
     EXPORT(vfs_readdir);
     EXPORT(vfs_finddir);

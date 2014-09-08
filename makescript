@@ -3,6 +3,7 @@ var isoOutput = "boot.iso";
 var isoDir = "mount/";
 var bootsect = "boot/bootsect.bin";
 var bootmgr = "mount/saki/bootmgr/bootmgr.bin";
+var bootmgrjs = "mount/saki/bootmgr/js.ske";
 var libraries = [];
 
 ls("libs").forEach(function(f){
@@ -66,7 +67,7 @@ phony("debug", ["everything", $(qemu, isoOutput, true)]);
 
 phony("dumpiso", hexdump);
 
-target(isoOutput, [isoDir + bootsect, bootmgr,
+target(isoOutput, [isoDir + bootsect, bootmgr, bootmgrjs,
 	function(target, dep) {
 		makeISO(target, isoDir, bootsect);
 	}
@@ -75,6 +76,8 @@ target(isoOutput, [isoDir + bootsect, bootmgr,
 target(isoDir + bootsect, ["boot.asm", nasmRaw]);
 
 target(bootmgr, libArchieve.concat(["bootmgr", $make("bootmgr")]));
+
+target(bootmgrjs, ["bootmgr", $make("bootmgrjs")]);
 
 libPath.forEach(function(lib, id){
 	target(libArchieve[id], [lib, $make(lib)]);

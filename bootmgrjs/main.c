@@ -3,8 +3,6 @@
 
 #include "unicode/category.h"
 
-uint8_t unicode_getType(uint32_t code);
-
 #define debugVar(var) printf(#var "=%d\n", (var));
 
 int main() {
