@@ -1,5 +1,10 @@
 /* Target constants */
-var output = "../mount/saki/bootmgr/js.ske"
+var output = "../mount/saki/bootmgr/js.ske";
+var depLibrary = [
+  "unicode"
+].map(function(name) {
+  return "../bin/libs/" + name + ".a";
+});
 var objOutput = [];
 
 recursiveList(".").forEach(function(file) {
@@ -41,7 +46,7 @@ phony("clean", function() {
 
 phony("all", ["clean", "everything"]);
 
-target(output, objOutput.concat(ld));
+target(output, objOutput.concat(depLibrary, ld));
 
 targetRegex(/^.*\.o$/, $depExist, function(target) {
   return target.replace("../bin/bootmgrjs/", "").extension(".c");

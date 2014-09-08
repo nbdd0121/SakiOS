@@ -138,6 +138,8 @@ void main(void) {
            spare / 1024 / 1024 % 1024,
            spare / 1024 % 1024);
 
+
+
     /* Load the sakiload */
     fs_node_t *exec = vfs_lookup("/media/cdrom/saki/bootmgr/js.ske");
     void *content = malloc(exec->length);
@@ -150,7 +152,7 @@ void main(void) {
     EXPORT(printf);
 
     /* VFS */
-    EXPORT(vfs_read);
+    /*EXPORT(vfs_read);
     EXPORT(vfs_write);
     EXPORT(vfs_readdir);
     EXPORT(vfs_finddir);
@@ -164,7 +166,6 @@ void main(void) {
     EXPORT(add_symbol);
     EXPORT(link_elf32);
     EXPORT(exec_elf32);
-
 
     link_elf32(content);
     exec_elf32(content);

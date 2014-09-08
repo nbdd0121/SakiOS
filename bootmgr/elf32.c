@@ -71,7 +71,7 @@ static uint32_t resolve_symbol(Elf32_Ehdr *header, char *strtab, Elf32_Sym *symb
 
 void link_elf32(void *content) {
     Elf32_Ehdr *header = content;
-    // char *shstrtab = ELF32_SH_GET(header, header->e_shstrndx)->sh_offset + content;
+    char *shstrtab = ELF32_SH_GET(header, header->e_shstrndx)->sh_offset + content;
     for (int i = 0; i < header->e_shnum; i++) {
         Elf32_Shdr *section = ELF32_SH_GET(header, i);
         switch (section->sh_type) {
@@ -91,7 +91,6 @@ void link_elf32(void *content) {
                 for (int i = 0; i < size; i++) {
                     Elf32_Sym *assoc = &symbolTable[ELF32_R_SYM(rel[i].r_info)];
                     uint32_t *ref = ELF32_SH_CONTENT(header, targetSection) + rel[i].r_offset;
-
                     switch (ELF32_R_TYPE(rel[i].r_info)) {
                         case R_386_32: {
                             uint32_t S = (uint32_t)resolve_symbol(header, symStrSect, assoc);

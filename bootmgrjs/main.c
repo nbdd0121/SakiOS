@@ -1,18 +1,18 @@
 #include "c/stdio.h"
+#include "c/stdint.h"
+
+#include "unicode/category.h"
+
+uint8_t unicode_getType(uint32_t code);
+
+#define debugVar(var) printf(#var "=%d\n", (var));
 
 int main() {
     printf("This is js");
 
-    EXPORT(vfs_read);
-    EXPORT(vfs_write);
-    EXPORT(vfs_readdir);
-    EXPORT(vfs_finddir);
-    EXPORT(vfs_create);
-    EXPORT(vfs_mkdir);
-    EXPORT(vfs_lookup);
-    EXPORT(vfs_mount);
-    EXPORT(vfs_mount_fs);
-    EXPORT(vfs_init);
+    debugVar(unicode_getType(L'Ā'));
+    debugVar(UPPERCASE_LETTER);
 
     return 0;
 }
+

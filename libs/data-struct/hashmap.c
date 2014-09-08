@@ -33,7 +33,7 @@ int string_hash(void *key) {
     char *c = key;
     int32_t h = 0;
     while (*c != '\0') {
-        h = 31 * h + *c++;
+        h = 31 * h + *(c++);
     }
     return h;
 }
