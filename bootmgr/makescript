@@ -3,6 +3,7 @@ var output = "../mount/saki/bootmgr/bootmgr.bin"
 var elfOutput = "../bin/bootmgr/bootmgr.ske";
 var objOutput = [];
 var depLibrary = [
+  "data-struct",
   "lib-format",
   "generic-io",
   "text-video",
@@ -15,10 +16,12 @@ var depLibrary = [
 
 recursiveList(".").forEach(function(file) {
   var ext = file.extension();
-  if (ext == ".c" || ext == ".asm") {
+  if (ext == ".c") {
     objOutput.push("../bin/bootmgr/" + file.extension(".o"));
   }
 });
+
+objOutput.unshift("../bin/bootmgr/loader.o");
 
 var cCompiler = "gcc";
 var cFlags = (

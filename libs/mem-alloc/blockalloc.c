@@ -7,6 +7,7 @@
 #include "c/stdint.h"
 #include "c/string.h"
 #include "c/stdbool.h"
+#include "c/assert.h"
 
 #include "mem-alloc/pageman.h"
 #include "mem-alloc/blockalloc.h"
@@ -37,7 +38,7 @@ typedef struct struct_block_t {
 } block_t;
 
 static size_t getPagePow(size_t size) {
-    return log2(alignTo(size, PAGE_SIZE) / PAGE_SIZE);
+    return log2(alignDown(size - 1, PAGE_SIZE) / PAGE_SIZE) + 1;
 }
 
 static inline block_t *nextBlock(block_t *this) {
@@ -81,6 +82,7 @@ static void mergeBlock(block_t *first) {
 
 allocator_t *allocator_create(pageman_t *man) {
     allocator_t *allocator = pageman_alloc(man, getPagePow(sizeof(allocator_t)));
+    assert(allocator);
     allocator->man = man;
     for (int i = 0; i < ARR_LEN; i++) {
         list_empty(&allocator->blocks[i]);

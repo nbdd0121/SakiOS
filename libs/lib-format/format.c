@@ -169,7 +169,7 @@ int vsprintf(char *buf, const char *fmt, va_list args) {
                 /*size_t len=strlen(str);
                 if(precision>=0&&(int)len>precision)
                     len=precision;*/
-                size_t len = precision >= 0 ? precision : strlen(str);
+                size_t len = precision >= 0 ? strnlen(str, precision) : strlen(str);
                 if (!(flags & LEFT))
                     while ((int)len < field_width--)
                         *p++ = ' ';

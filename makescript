@@ -33,7 +33,7 @@ function nasmRaw(dest, src) {
 }
 
 function qemu(cdrom, debug) {
-	var args = ["-cdrom", cdrom, "-m", "3G"];
+	var args = ["-cdrom", cdrom, "-m", "1G"];
 	if (debug)
 		args.push("-s", "-S");
 	exec("qemu-system-x86_64", args);

@@ -10,12 +10,11 @@
 
 #include "util/alignment.h"
 
-#include "vfs.h"
+#include "bootmgr/vfs.h"
 
 static fs_node_t *ramfs_create(fs_node_t *parent, char *name);
 static fs_node_t *ramfs_mkdir(fs_node_t *parent, char *name);
 static fs_node_t *ramfs_readdir(fs_node_t *parent, uint32_t index);
-static fs_node_t *ramfs_finddir(fs_node_t *parent, char *name);
 
 static fs_op_t ramfs_op = {
     .read = NULL,
@@ -85,5 +84,5 @@ static fs_node_t *ramfs_mkdir(fs_node_t *parent, char *name) {
 }
 
 fs_node_t *ramfs_create_fs(void) {
-    return ramfs_mkdir(NULL, "");
+    return ramfs_mkdir(NULL, "ramfs");
 }

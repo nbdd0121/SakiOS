@@ -52,6 +52,12 @@ size_t strlen(const char *str) {
     return counter;
 }
 
+size_t strnlen(const char *str, size_t maxlen) {
+    size_t counter = 0;
+    for (; *str && counter < maxlen; counter++, str++);
+    return counter;
+}
+
 /**
  * strdup - duplicate a string
  *

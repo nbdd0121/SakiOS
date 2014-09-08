@@ -5,8 +5,8 @@
  * @author Gary Guo <nbdd0121@hotmail.com>
  */
 
-#ifndef VFS_H
-#define VFS_H
+#ifndef BOOTMGR_VFS_H
+#define BOOTMGR_VFS_H
 
 #include "c/stdint.h"
 
@@ -49,6 +49,7 @@ fs_node_t *vfs_create(fs_node_t *node, char *name);
 fs_node_t *vfs_mkdir(fs_node_t *node, char *name);
 fs_node_t *vfs_lookup(char *path);
 void vfs_mount(char *path, fs_node_t *node);
+void vfs_mount_fs(char *target, char *source, fs_node_t *(*fs)(fs_node_t *));
 void vfs_init(void);
 
 fs_node_t *ramfs_create_fs(void);
