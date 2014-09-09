@@ -7,6 +7,8 @@
 #ifndef UNICODE_CATEGORY_H
 #define UNICODE_CATEGORY_H
 
+#include "c/stdint.h"
+
 enum {
     /* Cn */
     UNASSIGNED = 0,
@@ -69,5 +71,7 @@ enum {
     /* Pf */
     FINAL_QUOTE_PUNCTUATION = 30,
 };
+
+uint8_t unicode_getType(uint32_t ch);
 
 #endif

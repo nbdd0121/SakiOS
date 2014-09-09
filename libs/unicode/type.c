@@ -1,10 +1,6 @@
-
-
-
-#include "c/stdint.h"
 #include "c/assert.h"
 
-#include "unicode/category.h"
+#include "unicode/type.h"
 
 #include "type.inc"
 

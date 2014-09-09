@@ -71,7 +71,7 @@ static uint32_t resolve_symbol(Elf32_Ehdr *header, char *strtab, Elf32_Sym *symb
 
 void link_elf32(void *content) {
     Elf32_Ehdr *header = content;
-    char *shstrtab = ELF32_SH_GET(header, header->e_shstrndx)->sh_offset + content;
+    // char *shstrtab = ELF32_SH_GET(header, header->e_shstrndx)->sh_offset + content;
     for (int i = 0; i < header->e_shnum; i++) {
         Elf32_Shdr *section = ELF32_SH_GET(header, i);
         switch (section->sh_type) {

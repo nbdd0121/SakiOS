@@ -1,6 +1,7 @@
 /* Target constants */
 var output = "../mount/saki/bootmgr/js.ske";
 var depLibrary = [
+  "js",
   "unicode"
 ].map(function(name) {
   return "../bin/libs/" + name + ".a";

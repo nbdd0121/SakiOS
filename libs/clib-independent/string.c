@@ -10,10 +10,9 @@
 #include "c/stdlib.h"
 
 void *memcpy(void *restrict dest, const void *restrict src, size_t count) {
-    size_t i;
     char *d = dest;
     const char *s = src;
-    for (i = 0; i < count; i++, d++, s++) {
+    for (size_t i = 0; i < count; i++, d++, s++) {
         *d = *s;
     }
     return dest;
@@ -21,17 +20,15 @@ void *memcpy(void *restrict dest, const void *restrict src, size_t count) {
 
 void *memmove(void *dest, const void *src, size_t count) {
     if ((size_t)dest < (size_t)src || (size_t)dest > (size_t)src + count) {
-        size_t i;
         char *d = dest;
         const char *s = src;
-        for (i = 0; i < count; i++, d++, s++) {
+        for (size_t i = 0; i < count; i++, d++, s++) {
             *d = *s;
         }
     } else {
-        size_t i;
         char *d = dest + count;
         const char *s = src + count;
-        for (i = 0; i < count; i++, d--, s--) {
+        for (size_t i = 0; i < count; i++, d--, s--) {
             *d = *s;
         }
     }
@@ -89,4 +86,15 @@ int strcmp(const char *s1, const char *s2) {
         }
     }
     return *s1;
+}
+
+int memcmp(const void *s1, const void *s2, size_t n) {
+    char *p1 = s1, *p2 = s2;
+    for (size_t i = 0; i < n; i++, p1++, p2++) {
+        int diff = *p1 - *p2;
+        if (diff != 0) {
+            return diff;
+        }
+    }
+    return 0;
 }

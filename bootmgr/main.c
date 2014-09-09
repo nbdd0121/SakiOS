@@ -130,6 +130,7 @@ void main(void) {
     vfs_mount("/", ramfs_create_fs());
     vfs_mount("/dev/cdrom", ATAPI_init());
     vfs_mount_fs("/media/cdrom/", "/dev/cdrom", CDFS_create_fs);
+    vfs_mount("/media/boot/", vfs_lookup("/media/cdrom/"));
 
     /* Display currently available memories */
     size_t spare = pageman_spare(man);
@@ -137,7 +138,6 @@ void main(void) {
            spare / 1024 / 1024 / 1024,
            spare / 1024 / 1024 % 1024,
            spare / 1024 % 1024);
-
 
 
     /* Load the sakiload */
@@ -149,10 +149,18 @@ void main(void) {
      * in order to, first, enable the gc-sections, and second, to control the
      * symbols visible to applications */
 #define EXPORT(n) add_symbol(#n, n);
+    /* stdlib */
     EXPORT(printf);
 
+    EXPORT(strlen);
+    EXPORT(memcmp);
+
+    EXPORT(malloc);
+    EXPORT(free);
+    EXPORT(realloc);
+
     /* VFS */
-    /*EXPORT(vfs_read);
+    EXPORT(vfs_read);
     EXPORT(vfs_write);
     EXPORT(vfs_readdir);
     EXPORT(vfs_finddir);
@@ -169,7 +177,6 @@ void main(void) {
 
     link_elf32(content);
     exec_elf32(content);
-
 }
 
 
