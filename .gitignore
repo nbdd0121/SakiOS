@@ -4,3 +4,5 @@ mount
 *.sublime*
 bin
 bin/*
+docs
+docs/*
