@@ -77,7 +77,7 @@ target(isoDir + bootsect, ["boot.asm", nasmRaw]);
 
 target(bootmgr, libArchieve.concat(["bootmgr", $make("bootmgr")]));
 
-target(bootmgrjs, ["bootmgr", $make("bootmgrjs")]);
+target(bootmgrjs, libArchieve.concat("bootmgrjs", $make("bootmgrjs")));
 
 libPath.forEach(function(lib, id){
 	target(libArchieve[id], [lib, $make(lib)]);
