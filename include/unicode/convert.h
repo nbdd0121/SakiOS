@@ -1,3 +1,12 @@
+/**
+ * Provide unicode convertion features and data types
+ *
+ * @author Gary Guo <nbdd0121@hotmail.com>
+ */
+
+#ifndef UNICODE_CONVERT_H
+#define UNICODE_CONVERT_H
+
 #include "c/stdint.h"
 #include "c/string.h"
 
@@ -17,3 +26,5 @@ size_t unicode_countAsUtf16(utf8_string_t utf8);
 size_t unicode_countAsUtf8(utf16_string_t utf16);
 utf16_string_t unicode_toUtf16(utf8_string_t utf8);
 utf8_string_t unicode_toUtf8(utf16_string_t utf16);
+
+#endif

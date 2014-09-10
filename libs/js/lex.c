@@ -1,22 +1,26 @@
+#include "js/js.h"
 #include "unicode/type.h"
-#include "unicode/convert.h"
 
 #include "c/stdlib.h"
 #include "c/stdio.h"
 #include "c/assert.h"
-
-typedef struct struct_lex lex_t;
+#include "c/stdbool.h"
 
 struct struct_lex {
     uint16_t (*next)(lex_t *lex);
     uint16_t (*lookahead)(lex_t *lex);
-    void (*state)(lex_t *lex);
+    token_t *(*state)(lex_t *lex);
     utf16_string_t content;
     size_t ptr;
-    struct {
-        uint16_t *buffer;
-        size_t size;
-        size_t length;
+    bool regexp;
+    bool strictMode;
+    union {
+        struct {
+            uint16_t *buffer;
+            size_t size;
+            size_t length;
+        };
+        sakijs_number_t number;
     } data;
 };
 
@@ -70,19 +74,26 @@ static utf16_string_t cleanBuffer(lex_t *lex) {
         .str = lex->data.buffer,
         .len = lex->data.length
     };
-    lex->data.size = 0;
-    lex->data.length = 0;
-    lex->data.buffer = 0;
     return ret;
 }
 
-static void stateDefault(lex_t *lex);
-static void stateSingleLineComment(lex_t *lex);
-static void stateMultiLineComment(lex_t *lex);
-static void stateMultiLineCommentL(lex_t *lex);
-static void stateIdentiferPart(lex_t *lex);
+static token_t *createToken(uint16_t type) {
+    token_t *token = malloc(sizeof(struct struct_token));
+    token->type = type;
+    return token;
+}
 
-static void stateDefault(lex_t *lex) {
+static token_t *stateDefault(lex_t *lex);
+static token_t *stateSingleLineComment(lex_t *lex);
+static token_t *stateMultiLineComment(lex_t *lex);
+static token_t *stateMultiLineCommentL(lex_t *lex);
+static token_t *stateIdentiferPart(lex_t *lex);
+static token_t *stateHexIntegerLiteral(lex_t *lex);
+static token_t *stateOctIntegerLiteral(lex_t *lex);
+static token_t *stateDoubleString(lex_t *lex);
+static token_t *stateSingleString(lex_t *lex);
+
+static token_t *stateDefault(lex_t *lex) {
     uint16_t next = lex->next(lex);
     switch (next) {
         case TAB:
@@ -91,8 +102,7 @@ static void stateDefault(lex_t *lex) {
         case SP:
         case NBSP:
         case BOM: {
-            printf("[WS]");
-            return;
+            return NULL;
         }
         case CR: {
             if (lex->lookahead(lex) == LF) {
@@ -102,8 +112,7 @@ static void stateDefault(lex_t *lex) {
         case LF:
         case LS:
         case PS: {
-            printf("[LT]");
-            return;
+            return createToken(LINE);
         }
         case '/': {
             uint16_t next = lex->lookahead(lex);
@@ -112,19 +121,29 @@ static void stateDefault(lex_t *lex) {
             } else if (next == '*') {
                 lex->state = stateMultiLineComment;
             } else {
-                assert(0);
+                if (lex->regexp) {
+                    //TODO
+                    assert(!"Regexp is not currently supported");
+                } else {
+                    if (lex->lookahead(lex) == '=') {
+                        lex->next(lex);
+                        return createToken(DIV_ASSIGN);
+                    } else {
+                        return createToken(DIV);
+                    }
+                }
             }
-            return;
+            return NULL;
         }
         case '$':
         case '_': {
             createBuffer(lex);
             appendToBuffer(lex, next);
             lex->state = stateIdentiferPart;
-            return;
+            return NULL;
         }
         case '\\':
-            // Unicode Escape Sequence
+            //TODO Unicode Escape Sequence
             assert(0);
         case '{':
         case '}':
@@ -138,60 +157,49 @@ static void stateDefault(lex_t *lex) {
         case '~':
         case '?':
         case ':': {
-            printf("[PUNC %c]", next);
-            return;
+            return createToken(next);
         }
         case '<': {
             uint16_t nch = lex->lookahead(lex);
             if (nch == '=') {
                 lex->next(lex);
-                printf("[PUNC <=]");
-                return;
+                return createToken(LTEQ);
             } else if (nch == '<') {
                 lex->next(lex);
                 if (lex->lookahead(lex) == '=') {
                     lex->next(lex);
-                    printf("[PUNC <<=]");
-                    return;
+                    return createToken(SHL_ASSIGN);
                 } else {
-                    printf("[PUNC <<]");
-                    return;
+                    return createToken(SHL);
                 }
             } else {
-                printf("[PUNC <]");
-                return;
+                return createToken(LT);
             }
         }
         case '>': {
             uint16_t nch = lex->lookahead(lex);
             if (nch == '=') {
                 lex->next(lex);
-                printf("[PUNC >=]");
-                return;
+                return createToken(GTEQ);
             } else if (nch == '>') {
                 lex->next(lex);
                 uint16_t n2ch = lex->lookahead(lex);
                 if (n2ch == '=') {
                     lex->next(lex);
-                    printf("[PUNC >>=]");
-                    return;
+                    return createToken(SHR_ASSIGN);
                 } else if (n2ch == '>') {
                     lex->next(lex);
                     if (lex->lookahead(lex) == '=') {
                         lex->next(lex);
-                        printf("[PUNC >>>=]");
-                        return;
+                        return createToken(USHR_ASSIGN);
                     } else {
-                        printf("[PUNC >>>]");
-                        return;
+                        return createToken(USHR);
                     }
                 } else {
-                    printf("[PUNC >>]");
-                    return;
+                    return createToken(SHR);
                 }
             } else {
-                printf("[PUNC >]");
-                return;
+                return createToken(GT);
             }
         }
         case '=':
@@ -200,15 +208,12 @@ static void stateDefault(lex_t *lex) {
                 lex->next(lex);
                 if (lex->lookahead(lex) == '=') {
                     lex->next(lex);
-                    printf("[PUNC %c==]", next);
-                    return;
+                    return createToken(next == '=' ? FULL_EQ : FULL_INEQ);
                 } else {
-                    printf("[PUNC %c=]", next);
-                    return;
+                    return createToken(next | ASSIGN_FLAG);
                 }
             } else {
-                printf("[PUNC %c]", next);
-                return;
+                return createToken(next);
             }
         }
         case '+':
@@ -218,15 +223,12 @@ static void stateDefault(lex_t *lex) {
             uint16_t nch = lex->lookahead(lex);
             if (nch == '=') {
                 lex->next(lex);
-                printf("[PUNC %c=]", next);
-                return;
+                return createToken(next | ASSIGN_FLAG);
             } else if (nch == next) {
                 lex->next(lex);
-                printf("[PUNC %c%c]", next, next);
-                return;
+                return createToken(next | DOUBLE_FLAG);
             } else {
-                printf("[PUNC %c]", next);
-                return;
+                return createToken(next);
             }
         }
         case '*':
@@ -234,19 +236,57 @@ static void stateDefault(lex_t *lex) {
         case '^': {
             if (lex->lookahead(lex) == '=') {
                 lex->next(lex);
-                printf("[PUNC %c=]", next);
-                return;
+                return createToken(next | ASSIGN_FLAG);
             } else {
-                printf("[PUNC %c]", next);
-                return;
+                return createToken(next);
             }
+        }
+        case '0': {
+            uint16_t nch = lex->lookahead(lex);
+            if (nch == 'x' || nch == 'X') {
+                lex->next(lex);
+                lex->state = stateHexIntegerLiteral;
+                lex->data.number = 0;
+                return NULL;
+            } else if (nch >= '0' && nch <= '9') {
+                if (lex->strictMode) {
+                    assert(!"Syntax Error: Octal literals are not allowed in strict mode.");
+                } else {
+                    lex->state = stateOctIntegerLiteral;
+                    lex->data.number = 0;
+                }
+                return NULL;
+            }
+        }
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9': {
+            assert(!"DEC not supported yet");
+        }
+        case '"': {
+            lex->state = stateDoubleString;
+            createBuffer(lex);
+            return NULL;
+        }
+        case '\'': {
+            lex->state = stateSingleString;
+            createBuffer(lex);
+            return NULL;
+        }
+        case 0xFFFF: {
+            assert(!"[EOF]");
         }
     }
 
     switch (unicode_getType(next)) {
         case SPACE_SEPARATOR: {
-            printf("[WS]");
-            return;
+            return NULL;
         }
         case UPPERCASE_LETTER:
         case LOWERCASE_LETTER:
@@ -257,13 +297,14 @@ static void stateDefault(lex_t *lex) {
             createBuffer(lex);
             appendToBuffer(lex, next);
             lex->state = stateIdentiferPart;
-            return;
+            return NULL;
         }
     }
     assert(0);
+    return NULL;
 }
 
-static void stateSingleLineComment(lex_t *lex) {
+static token_t *stateSingleLineComment(lex_t *lex) {
     uint16_t next = lex->lookahead(lex);
     switch (next) {
         case CR:
@@ -271,23 +312,22 @@ static void stateSingleLineComment(lex_t *lex) {
         case LS:
         case PS: {
             lex->state = stateDefault;
-            printf("[WS]");
-            return;
+            return NULL;
         }
     }
     lex->next(lex);
+    return NULL;
 }
 
-static void stateMultiLineComment(lex_t *lex) {
+static token_t *stateMultiLineComment(lex_t *lex) {
     uint16_t next = lex->next(lex);
     switch (next) {
         case '*': {
             if (lex->lookahead(lex) == '/') {
                 lex->next(lex);
                 lex->state = stateDefault;
-                printf("[WS]");
             }
-            return;
+            return NULL;
         }
         case CR:
         case LF:
@@ -296,21 +336,22 @@ static void stateMultiLineComment(lex_t *lex) {
             lex->state = stateMultiLineCommentL;
         }
     }
+    return NULL;
 }
 
-static void stateMultiLineCommentL(lex_t *lex) {
+static token_t *stateMultiLineCommentL(lex_t *lex) {
     uint16_t next = lex->next(lex);
     if (next == '*') {
         if (lex->lookahead(lex) == '/') {
             lex->next(lex);
             lex->state = stateDefault;
-            printf("[LT]");
+            return createToken(LINE);
         }
-        return;
     }
+    return NULL;
 }
 
-static void stateIdentiferPart(lex_t *lex) {
+static token_t *stateIdentiferPart(lex_t *lex) {
     uint16_t next = lex->lookahead(lex);
     switch (next) {
         case '$':
@@ -319,10 +360,10 @@ static void stateIdentiferPart(lex_t *lex) {
         case ZWJ: {
             lex->next(lex);
             appendToBuffer(lex, next);
-            return;
+            return NULL;
         }
         case '\\': {
-            //Unicode Escape Sequence
+            //TODO Unicode Escape Sequence
             assert(0);
         }
     }
@@ -339,13 +380,153 @@ static void stateIdentiferPart(lex_t *lex) {
         case COMBINING_SPACING_MARK: {
             lex->next(lex);
             appendToBuffer(lex, next);
-            return;
+            return NULL;
         }
     }
     lex->state = stateDefault;
-    utf16_string_t identifierName = cleanBuffer(lex);
-    utf8_string_t string = unicode_toUtf8(identifierName);
-    printf("[Identifier %.*s]", string.len, string.str);
+
+    token_t *token = createToken(ID);
+    token->stringValue = cleanBuffer(lex);
+
+    return token;
+}
+
+static token_t *stateOctIntegerLiteral(lex_t *lex) {
+    uint16_t next = lex->lookahead(lex);
+    if (next >= '0' && next <= '7') {
+        lex->next(lex);
+        lex->data.number = lex->data.number * 8 + (next - '0');
+    }  else {
+        if (next == '8' || next == '9' || next == '$' || next == '_' || next == '\\') {
+            assert(!"SyntaxError: Unexpected character after number literal.");
+        }
+        switch (unicode_getType(next)) {
+            case UPPERCASE_LETTER:
+            case LOWERCASE_LETTER:
+            case TITLECASE_LETTER:
+            case MODIFIER_LETTER:
+            case OTHER_LETTER:
+            case LETTER_NUMBER:
+                assert(!"SyntaxError: Unexpected character after number literal.");
+        }
+
+        lex->state = stateDefault;
+
+        token_t *token = createToken(NUM);
+        token->numberValue = lex->data.number;
+
+        return token;
+    }
+    return NULL;
+}
+
+static token_t *stateHexIntegerLiteral(lex_t *lex) {
+    uint16_t next = lex->lookahead(lex);
+    if (next >= '0' && next <= '9') {
+        lex->next(lex);
+        lex->data.number = lex->data.number * 16 + (next - '0');
+    } else if (next >= 'a' && next <= 'f') {
+        lex->next(lex);
+        lex->data.number = lex->data.number * 16 + 10 + (next - 'a');
+    } else if (next >= 'A' && next <= 'F') {
+        lex->next(lex);
+        lex->data.number = lex->data.number * 16 + 10 + (next - 'a');
+    } else {
+        if (next == '$' || next == '_' || next == '\\') {
+            assert(!"SyntaxError: Unexpected character after number literal.");
+        }
+        switch (unicode_getType(next)) {
+            case UPPERCASE_LETTER:
+            case LOWERCASE_LETTER:
+            case TITLECASE_LETTER:
+            case MODIFIER_LETTER:
+            case OTHER_LETTER:
+            case LETTER_NUMBER:
+                assert(!"SyntaxError: Unexpected character after number literal.");
+        }
+
+        lex->state = stateDefault;
+
+        token_t *token = createToken(NUM);
+        token->numberValue = lex->data.number;
+
+        return token;
+    }
+    return NULL;
+}
+
+static void dealEscapeSequence(lex_t *lex) {
+    uint16_t next = lex->next(lex);
+    switch (next) {
+        case CR: {
+            if (lex->lookahead(lex) == LF) {
+                lex->next(lex);
+                return;
+            }
+        }
+        case LF:
+        case LS:
+        case PS:
+            return;
+        default:
+            assert(0);
+    }
+}
+
+static token_t *stateDoubleString(lex_t *lex) {
+    uint16_t next = lex->next(lex);
+    switch (next) {
+        case '"': {
+            lex->state = stateDefault;
+
+            token_t *token = createToken(STR);
+            token->stringValue = cleanBuffer(lex);
+
+            return token;
+        }
+        case '\\': {
+            dealEscapeSequence(lex);
+            return NULL;
+        }
+        case CR:
+        case LF:
+        case LS:
+        case PS:
+        case 0xFFFF:
+            assert(!"SyntaxError: String literal is not enclosed.");
+        default: {
+            appendToBuffer(lex, next);
+            return NULL;
+        }
+    }
+}
+
+static token_t *stateSingleString(lex_t *lex) {
+    uint16_t next = lex->next(lex);
+    switch (next) {
+        case '\'': {
+            lex->state = stateDefault;
+
+            token_t *token = createToken(STR);
+            token->stringValue = cleanBuffer(lex);
+
+            return token;
+        }
+        case '\\': {
+            dealEscapeSequence(lex);
+            return NULL;
+        }
+        case CR:
+        case LF:
+        case LS:
+        case PS:
+        case 0xFFFF:
+            assert(!"SyntaxError: String literal is not enclosed.");
+        default: {
+            appendToBuffer(lex, next);
+            return NULL;
+        }
+    }
 }
 
 lex_t *lex_new(char *chr) {
@@ -355,10 +536,17 @@ lex_t *lex_new(char *chr) {
     l->state = stateDefault;
     l->content = unicode_toUtf16(UTF8_STRING(chr));
     l->ptr = 0;
+    l->regexp = true;
+    l->strictMode = false;
     return l;
 }
 
-void lex_next(lex_t *lex) {
-    while (1)
-        lex->state(lex);
+token_t *lex_next(lex_t *lex) {
+    while (1) {
+        token_t *ret = lex->state(lex);
+        if (ret) {
+            return ret;
+        }
+    }
 }
+
