@@ -108,3 +108,11 @@ utf8_string_t unicode_toUtf8(utf16_string_t utf16) {
          .len = len
     };
 }
+
+void unicode_putUtf8(utf8_string_t utf8) {
+    printf("%.*s", utf8.len, utf8.str);
+}
+
+void unicode_putUtf16(utf16_string_t utf16) {
+    unicode_putUtf8(unicode_toUtf8(utf16));
+}

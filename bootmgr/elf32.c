@@ -35,6 +35,10 @@ static uint32_t resolve_symbol(Elf32_Ehdr *header, char *strtab, Elf32_Sym *symb
         case SHN_UNDEF: {
             char *name = strtab + symbol->st_name;
             uint32_t ret = resolve_external_symbol(name);
+
+            if (strcmp(strtab + symbol->st_name, "keywords") == 0)
+                printf("[DEFAULT %s]", strtab + symbol->st_name);
+
             if (ret) {
                 /* Cache the result */
                 symbol->st_shndx = SHN_ABS;
@@ -58,9 +62,17 @@ static uint32_t resolve_symbol(Elf32_Ehdr *header, char *strtab, Elf32_Sym *symb
             return (uint32_t)ret;
         }
         default: {
-            uint32_t ret = (uint32_t)
-                           ELF32_SH_CONTENT(header, ELF32_SH_GET(header, symbol->st_shndx)) +
-                           symbol->st_value;
+            Elf32_Shdr *section = ELF32_SH_GET(header, symbol->st_shndx);
+            uint32_t ret;
+            if (section->sh_type == SHT_NOBITS) {
+                void *ptr = malloc(section->sh_size);
+                memset(ptr, 0, section->sh_size);
+                ret = (uint32_t)ptr;
+            } else {
+                ret = (uint32_t)
+                      ELF32_SH_CONTENT(header, section) +
+                      symbol->st_value;
+            }
             /* Cache the result */
             symbol->st_shndx = SHN_ABS;
             symbol->st_value = ret;

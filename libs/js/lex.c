@@ -1,28 +1,11 @@
 #include "js/js.h"
 #include "unicode/type.h"
+#include "unicode/hash.h"
 
 #include "c/stdlib.h"
 #include "c/stdio.h"
 #include "c/assert.h"
 #include "c/stdbool.h"
-
-struct struct_lex {
-    uint16_t (*next)(lex_t *lex);
-    uint16_t (*lookahead)(lex_t *lex);
-    token_t *(*state)(lex_t *lex);
-    utf16_string_t content;
-    size_t ptr;
-    bool regexp;
-    bool strictMode;
-    union {
-        struct {
-            uint16_t *buffer;
-            size_t size;
-            size_t length;
-        };
-        sakijs_number_t number;
-    } data;
-};
 
 enum {
     TAB = 0x9,
@@ -40,6 +23,77 @@ enum {
     ZWNJ = 0x200C,
     ZWJ = 0x200D
 };
+
+static hashmap_t *keywords = NULL;
+
+static void initKeyword(void) {
+    keywords = hashmap_new_utf16(97);
+    static struct {
+        char *name;
+        uint16_t value;
+    } map[] = {
+        {"break", BREAK},
+        {"case", CASE},
+        {"catch", CATCH},
+        {"continue", CONTINUE},
+        {"debugger", DEBUGGER},
+        {"default", DEFAULT},
+        {"delete", DELETE},
+        {"do", DO},
+        {"else", ELSE},
+        {"finally", FINALLY},
+        {"for", FOR},
+        {"function", FUNCTION},
+        {"if", IF},
+        {"in", IN},
+        {"instanceof", INSTANCEOF},
+        {"new", NEW},
+        {"return", RETURN},
+        {"switch", SWITCH},
+        {"this", THIS},
+        {"throw", THROW},
+        {"try", TRY},
+        {"typeof", TYPEOF},
+        {"var", VAR},
+        {"void", VOID},
+        {"while", WHILE},
+        {"with", WITH},
+
+        {"class", RESERVED_WORD},
+        {"const", RESERVED_WORD},
+        {"enum", RESERVED_WORD},
+        {"export", RESERVED_WORD},
+        {"extends", RESERVED_WORD},
+        {"import", RESERVED_WORD},
+        {"super", RESERVED_WORD},
+
+        {"implements", RESERVED_STRICT},
+        {"interface", RESERVED_STRICT},
+        {"let", RESERVED_STRICT},
+        {"package", RESERVED_STRICT},
+        {"private", RESERVED_STRICT},
+        {"protected", RESERVED_STRICT},
+        {"public", RESERVED_STRICT},
+        {"static", RESERVED_STRICT},
+        {"yield", RESERVED_STRICT},
+
+        {"null", NULL_LIT},
+        {"true", TRUE_LIT},
+        {"false", FALSE_LIT}
+    };
+    for (int i = 0; i < sizeof(map) / sizeof(map[0]); i++) {
+        utf16_string_t *utf16 = malloc(sizeof(utf16_string_t));
+        *utf16 = unicode_toUtf16(UTF8_STRING(map[i].name));
+        hashmap_put(keywords, utf16, (void *)(size_t)map[i].value);
+    }
+}
+
+static uint16_t lookupKeyword(utf16_string_t kwd) {
+    if (!keywords) {
+        initKeyword();
+    }
+    return (size_t)hashmap_get(keywords, &kwd);
+}
 
 static uint16_t lookahead(lex_t *lex) {
     if (lex->ptr == lex->content.len) {
@@ -83,10 +137,18 @@ static token_t *createToken(uint16_t type) {
     return token;
 }
 
+void lex_disposeToken(token_t *tk) {
+    if (tk->type == ID || tk->type == STR) {
+        if (tk->stringValue.str) {
+            free(tk->stringValue.str);
+        }
+    }
+    free(tk);
+}
+
 static token_t *stateDefault(lex_t *lex);
 static token_t *stateSingleLineComment(lex_t *lex);
 static token_t *stateMultiLineComment(lex_t *lex);
-static token_t *stateMultiLineCommentL(lex_t *lex);
 static token_t *stateIdentiferPart(lex_t *lex);
 static token_t *stateHexIntegerLiteral(lex_t *lex);
 static token_t *stateOctIntegerLiteral(lex_t *lex);
@@ -112,7 +174,8 @@ static token_t *stateDefault(lex_t *lex) {
         case LF:
         case LS:
         case PS: {
-            return createToken(LINE);
+            lex->lineBefore = true;
+            return NULL;
         }
         case '/': {
             uint16_t next = lex->lookahead(lex);
@@ -280,7 +343,8 @@ static token_t *stateDefault(lex_t *lex) {
             return NULL;
         }
         case 0xFFFF: {
-            assert(!"[EOF]");
+            lex->lineBefore = true;
+            return createToken(END_OF_FILE);
         }
     }
 
@@ -333,19 +397,7 @@ static token_t *stateMultiLineComment(lex_t *lex) {
         case LF:
         case LS:
         case PS: {
-            lex->state = stateMultiLineCommentL;
-        }
-    }
-    return NULL;
-}
-
-static token_t *stateMultiLineCommentL(lex_t *lex) {
-    uint16_t next = lex->next(lex);
-    if (next == '*') {
-        if (lex->lookahead(lex) == '/') {
-            lex->next(lex);
-            lex->state = stateDefault;
-            return createToken(LINE);
+            lex->lineBefore = true;
         }
     }
     return NULL;
@@ -385,10 +437,35 @@ static token_t *stateIdentiferPart(lex_t *lex) {
     }
     lex->state = stateDefault;
 
-    token_t *token = createToken(ID);
-    token->stringValue = cleanBuffer(lex);
+    utf16_string_t str = cleanBuffer(lex);
 
-    return token;
+    if (!lex->parseId) {
+        token_t *token = createToken(ID);
+        token->stringValue = str;
+        return token;
+    }
+
+    uint16_t type = lookupKeyword(str);
+
+    if (type == RESERVED_STRICT) {
+        if (lex->strictMode) {
+            type = RESERVED_WORD;
+        } else {
+            type = 0;
+        }
+    }
+
+    if (!type) {
+        token_t *token = createToken(ID);
+        token->stringValue = str;
+        return token;
+    } else if (type == RESERVED_WORD) {
+        assert(!"SyntaxError: Unexpected reserved word.");
+        return NULL;
+    } else {
+        free(str.str);
+        return createToken(type);
+    }
 }
 
 static token_t *stateOctIntegerLiteral(lex_t *lex) {
@@ -536,8 +613,10 @@ lex_t *lex_new(char *chr) {
     l->state = stateDefault;
     l->content = unicode_toUtf16(UTF8_STRING(chr));
     l->ptr = 0;
-    l->regexp = true;
-    l->strictMode = false;
+    l->regexp = false;
+    l->strictMode = true;
+    l->lineBefore = false;
+    l->parseId = true;
     return l;
 }
 
@@ -545,8 +624,99 @@ token_t *lex_next(lex_t *lex) {
     while (1) {
         token_t *ret = lex->state(lex);
         if (ret) {
+            ret->lineBefore = lex->lineBefore;
+            lex->lineBefore = false;
             return ret;
         }
     }
 }
 
+void examine_token(token_t *ret) {
+    if (ret->lineBefore) {
+        printf("(line)");
+    }
+    if (ret->type < ASSIGN_FLAG) {
+        printf("(%c)", ret->type);
+    } else if (ret->type < DOUBLE_FLAG) {
+        printf("(%c=)", ret->type & ~ ASSIGN_FLAG);
+    } else if (ret->type < OTHER_FLAG) {
+        printf("(%c=)", ret->type & ~ DOUBLE_FLAG);
+    } else {
+        switch (ret->type) {
+            case FULL_EQ: {
+                printf("(===)");
+                break;
+            }
+            case FULL_INEQ: {
+                printf("(!==)");
+                break;
+            }
+            case SHL: {
+                printf("(<<)");
+                break;
+            }
+            case SHR: {
+                printf("(>>)");
+                break;
+            }
+            case USHR: {
+                printf("(>>>)");
+                break;
+            }
+            case SHL_ASSIGN: {
+                printf("(<<=)");
+                break;
+            }
+            case SHR_ASSIGN: {
+                printf("(>>=)");
+                break;
+            }
+            case USHR_ASSIGN: {
+                printf("(>>>=)");
+                break;
+            }
+            case STR: {
+                utf8_string_t str = unicode_toUtf8(ret->stringValue);
+                printf("(STR, %.*s)", str.len, str.str);
+                break;
+            }
+            case ID: {
+                utf8_string_t str = unicode_toUtf8(ret->stringValue);
+                printf("(ID, %.*s)", str.len, str.str);
+                break;
+            }
+            case NUM: {
+                printf("(NUM, %d)", (size_t)ret->numberValue);
+                break;
+            }
+            case BREAK: printf("(break"); break;
+            case CASE: printf("(case)"); break;
+            case CATCH: printf("(catch)"); break;
+            case CONTINUE: printf("(continue)"); break;
+            case DEBUGGER: printf("(debugger)"); break;
+            case DEFAULT: printf("(default)"); break;
+            case DELETE: printf("(delete)"); break;
+            case DO: printf("(do)"); break;
+            case ELSE: printf("(else)"); break;
+            case FINALLY: printf("(finally)"); break;
+            case FOR: printf("(for)"); break;
+            case FUNCTION: printf("(function)"); break;
+            case IF: printf("(if)"); break;
+            case IN: printf("(in)"); break;
+            case INSTANCEOF: printf("(instanceof)"); break;
+            case NEW: printf("(new)"); break;
+            case RETURN: printf("(return)"); break;
+            case SWITCH: printf("(switch)"); break;
+            case THIS: printf("(this)"); break;
+            case THROW: printf("(throw)"); break;
+            case TRY: printf("(try)"); break;
+            case TYPEOF: printf("(typeof)"); break;
+            case VAR: printf("(var)"); break;
+            case VOID: printf("(void)"); break;
+            case WHILE: printf("(while)"); break;
+            case WITH: printf("(with)"); break;
+            default:
+                assert(0);
+        }
+    }
+}

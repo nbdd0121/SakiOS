@@ -26,5 +26,7 @@ size_t unicode_countAsUtf16(utf8_string_t utf8);
 size_t unicode_countAsUtf8(utf16_string_t utf16);
 utf16_string_t unicode_toUtf16(utf8_string_t utf8);
 utf8_string_t unicode_toUtf8(utf16_string_t utf16);
+void unicode_putUtf8(utf8_string_t utf8);
+void unicode_putUtf16(utf16_string_t utf16);
 
 #endif

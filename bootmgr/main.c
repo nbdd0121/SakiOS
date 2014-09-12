@@ -14,6 +14,8 @@
 #include "c-stdlib/malloc.h"
 #include "asm/asm.h"
 
+#include "data-struct/hashmap.h"
+
 #include "bootmgr/vfs.h"
 
 #pragma pack(1)
@@ -169,6 +171,11 @@ void main(void) {
     EXPORT(vfs_lookup);
     EXPORT(vfs_mount);
     EXPORT(vfs_mount_fs);
+
+    /* Hashmap */
+    EXPORT(hashmap_new);
+    EXPORT(hashmap_put);
+    EXPORT(hashmap_get);
 
     /* Symbol Table */
     EXPORT(add_symbol);
