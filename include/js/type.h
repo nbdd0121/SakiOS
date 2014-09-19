@@ -16,6 +16,7 @@ enum js_data_type_t {
     JS_OBJECT,
 
     JS_INTERNAL_REF,
+    JS_INTERNAL_COMPLETION,
     JS_INTERNAL_PROPERTY,
 
     JS_INTERNAL_TOKEN,
@@ -135,15 +136,19 @@ enum js_empty_node_type_t {
 };
 
 enum js_unary_node_type_t {
+    POST_INC_NODE,
+    POST_DEC_NODE,
     DELETE_NODE,
     VOID_NODE,
     TYPEOF_NODE,
-    INC_NODE,
-    DEC_NODE,
+    PRE_INC_NODE,
+    PRE_DEC_NODE,
     POS_NODE,
     NEG_NODE,
     NOT_NODE,
     LNOT_NODE,
+
+    EXPR_STMT
 };
 
 enum js_binary_node_type_t {
@@ -244,6 +249,19 @@ typedef struct js_context_t {
     js_object_t *thisBinding;
 } js_context_t;
 
+typedef struct js_completion_t {
+    js_data_t header;
+    js_data_t *value;
+    js_string_t *target;
+    enum js_completion_type_t {
+        COMPLETION_NORMAL,
+        COMPLETION_BREAK,
+        COMPLETION_CONTINUE,
+        COMPLETION_RETURN,
+        COMPLETION_THROW
+    } type;
+} js_completion_t;
+
 typedef struct js_reference_t {
     js_data_t header;
     js_data_t *base;
@@ -327,6 +345,7 @@ js_string_t *js_new_string(utf16_string_t str);
 js_data_t *js_alloc(enum js_data_type_t);
 js_object_t *js_allocObject(void);
 js_reference_t *js_allocReference(js_data_t *base, js_string_t *refName, bool strict);
+js_completion_t *js_allocCompletion(enum js_completion_type_t type);
 js_property_t *js_allocPropertyDesc(void);
 js_token_t *js_allocToken(enum js_token_type_t type);
 js_empty_node_t *js_allocEmptyNode(enum js_empty_node_type_t type);

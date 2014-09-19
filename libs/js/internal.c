@@ -20,6 +20,22 @@ js_data_t *js_evalEmptyNode(js_context_t *context, js_empty_node_t *node) {
 
 js_data_t *js_evalUnaryNode(js_context_t *context, js_unary_node_t *node) {
     switch (node->type) {
+        case POST_INC_NODE: {
+            js_data_t *expr = js_evalNode(context, node->_1);
+            // Eval&Arguments
+            js_data_t *oldValue = js_toNumber(js_getValue(expr));
+            js_data_t *newValue = js_new_number(((js_number_t *)oldValue)->value + 1.);
+            js_putValue(expr, newValue);
+            return oldValue;
+        }
+        case POST_DEC_NODE: {
+            js_data_t *expr = js_evalNode(context, node->_1);
+            // Eval&Arguments
+            js_data_t *oldValue = js_toNumber(js_getValue(expr));
+            js_data_t *newValue = js_new_number(((js_number_t *)oldValue)->value - 1.);
+            js_putValue(expr, newValue);
+            return oldValue;
+        }
         case DELETE_NODE: {
             assert(0);
         }
@@ -31,9 +47,22 @@ js_data_t *js_evalUnaryNode(js_context_t *context, js_unary_node_t *node) {
         case TYPEOF_NODE: {
             assert(0);
         }
-        case INC_NODE:
-        case DEC_NODE:
-            assert(0);
+        case PRE_INC_NODE: {
+            js_data_t *expr = js_evalNode(context, node->_1);
+            // Eval&Arguments
+            js_data_t *oldValue = js_toNumber(js_getValue(expr));
+            js_data_t *newValue = js_new_number(((js_number_t *)oldValue)->value + 1.);
+            js_putValue(expr, newValue);
+            return newValue;
+        }
+        case PRE_DEC_NODE: {
+            js_data_t *expr = js_evalNode(context, node->_1);
+            // Eval&Arguments
+            js_data_t *oldValue = js_toNumber(js_getValue(expr));
+            js_data_t *newValue = js_new_number(((js_number_t *)oldValue)->value - 1.);
+            js_putValue(expr, newValue);
+            return newValue;
+        }
         case POS_NODE: {
             js_data_t *expr = js_evalNode(context, node->_1);
             return js_toNumber(js_getValue(expr));
@@ -59,6 +88,13 @@ js_data_t *js_evalUnaryNode(js_context_t *context, js_unary_node_t *node) {
             } else {
                 return js_constTrue;
             }
+        }
+
+        case EXPR_STMT: {
+            js_data_t *exprRef = js_evalNode(context, node->_1);
+            js_completion_t *comp = js_allocCompletion(COMPLETION_NORMAL);
+            comp->value = js_getValue(exprRef);
+            return (js_data_t *)comp;
         }
         default: assert(0);
     }
@@ -175,40 +211,24 @@ static js_data_t *strictEqComp(js_data_t *x, js_data_t *y) {
     }
 }
 
-js_data_t *js_evalBinaryNode(js_context_t *context, js_binary_node_t *node) {
-    switch (node->type) {
-        case MEMBER_NODE: {
-            js_data_t *baseValue = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *propNameVal = js_getValue(js_evalNode(context, node->_2));
-            js_checkObjectCoercible(baseValue);
-            js_string_t *propNameStr = js_toString(propNameVal);
-            // Strict?
-            return (js_data_t *)js_allocReference(baseValue, propNameStr, false);
-        }
+static js_data_t *doBinaryOp(enum js_binary_node_type_t type, js_data_t *lval, js_data_t *rval) {
+    switch (type) {
         case MUL_NODE: {
-            js_data_t *leftValue = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rightValue = js_getValue(js_evalNode(context, node->_2));
-            js_number_t *leftNum = (js_number_t *)js_toNumber(leftValue);
-            js_number_t *rightNum = (js_number_t *)js_toNumber(rightValue);
+            js_number_t *leftNum = (js_number_t *)js_toNumber(lval);
+            js_number_t *rightNum = (js_number_t *)js_toNumber(rval);
             return js_new_number(leftNum->value * rightNum->value);
         }
         case DIV_NODE: {
-            js_data_t *leftValue = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rightValue = js_getValue(js_evalNode(context, node->_2));
-            js_number_t *leftNum = (js_number_t *)js_toNumber(leftValue);
-            js_number_t *rightNum = (js_number_t *)js_toNumber(rightValue);
+            js_number_t *leftNum = (js_number_t *)js_toNumber(lval);
+            js_number_t *rightNum = (js_number_t *)js_toNumber(rval);
             return js_new_number(leftNum->value / rightNum->value);
         }
         case MOD_NODE: {
-            js_data_t *leftValue = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rightValue = js_getValue(js_evalNode(context, node->_2));
-            js_number_t *leftNum = (js_number_t *)js_toNumber(leftValue);
-            js_number_t *rightNum = (js_number_t *)js_toNumber(rightValue);
+            js_number_t *leftNum = (js_number_t *)js_toNumber(lval);
+            js_number_t *rightNum = (js_number_t *)js_toNumber(rval);
             return js_new_number(fmod(leftNum->value, rightNum->value));
         }
         case ADD_NODE: {
-            js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rval = js_getValue(js_evalNode(context, node->_2));
             js_data_t *lprim = js_toPrimitive(lval);
             js_data_t *rprim = js_toPrimitive(rval);
             if (lprim->type == JS_STRING || rprim->type == JS_STRING) {
@@ -228,35 +248,72 @@ js_data_t *js_evalBinaryNode(js_context_t *context, js_binary_node_t *node) {
             }
         }
         case SUB_NODE: {
-            js_data_t *leftValue = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rightValue = js_getValue(js_evalNode(context, node->_2));
-            js_number_t *leftNum = (js_number_t *)js_toNumber(leftValue);
-            js_number_t *rightNum = (js_number_t *)js_toNumber(rightValue);
+            js_number_t *leftNum = (js_number_t *)js_toNumber(lval);
+            js_number_t *rightNum = (js_number_t *)js_toNumber(rval);
             return js_new_number(leftNum->value - rightNum->value);
         }
         case SHL_NODE: {
-            js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rval = js_getValue(js_evalNode(context, node->_2));
             int32_t lnum = js_toInt32(lval);
             uint32_t rnum = js_toUint32(rval);
             int32_t shiftCount = rnum & 0x1F;
             return js_new_number(lnum << shiftCount);
         }
         case SHR_NODE: {
-            js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rval = js_getValue(js_evalNode(context, node->_2));
             int32_t lnum = js_toInt32(lval);
             uint32_t rnum = js_toUint32(rval);
             int32_t shiftCount = rnum & 0x1F;
             return js_new_number(lnum >> shiftCount);
         }
         case USHR_NODE: {
-            js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rval = js_getValue(js_evalNode(context, node->_2));
             uint32_t lnum = js_toUint32(lval);
             uint32_t rnum = js_toUint32(rval);
             uint32_t shiftCount = rnum & 0x1F;
             return js_new_number(lnum >> shiftCount);
+        }
+        case AND_NODE: {
+            int32_t lnum = js_toInt32(lval);
+            int32_t rnum = js_toInt32(rval);
+            return js_new_number(lnum & rnum);
+        }
+        case XOR_NODE: {
+            int32_t lnum = js_toInt32(lval);
+            int32_t rnum = js_toInt32(rval);
+            return js_new_number(lnum ^ rnum);
+        }
+        case OR_NODE: {
+            int32_t lnum = js_toInt32(lval);
+            int32_t rnum = js_toInt32(rval);
+            return js_new_number(lnum | rnum);
+        }
+        default:
+            assert(0);
+    }
+}
+
+js_data_t *js_evalBinaryNode(js_context_t *context, js_binary_node_t *node) {
+    switch (node->type) {
+        case MEMBER_NODE: {
+            js_data_t *baseValue = js_getValue(js_evalNode(context, node->_1));
+            js_data_t *propNameVal = js_getValue(js_evalNode(context, node->_2));
+            js_checkObjectCoercible(baseValue);
+            js_string_t *propNameStr = js_toString(propNameVal);
+            // Strict?
+            return (js_data_t *)js_allocReference(baseValue, propNameStr, false);
+        }
+        case MUL_NODE:
+        case DIV_NODE:
+        case MOD_NODE:
+        case ADD_NODE:
+        case SUB_NODE:
+        case SHL_NODE:
+        case SHR_NODE:
+        case USHR_NODE:
+        case AND_NODE:
+        case XOR_NODE:
+        case OR_NODE: {
+            js_data_t *leftValue = js_getValue(js_evalNode(context, node->_1));
+            js_data_t *rightValue = js_getValue(js_evalNode(context, node->_2));
+            return doBinaryOp(node->type, leftValue, rightValue);
         }
         case LT_NODE: {
             js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
@@ -331,27 +388,6 @@ js_data_t *js_evalBinaryNode(js_context_t *context, js_binary_node_t *node) {
                 return js_constTrue;
             }
         }
-        case AND_NODE: {
-            js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rval = js_getValue(js_evalNode(context, node->_2));
-            int32_t lnum = js_toInt32(lval);
-            int32_t rnum = js_toInt32(rval);
-            return js_new_number(lnum & rnum);
-        }
-        case XOR_NODE: {
-            js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rval = js_getValue(js_evalNode(context, node->_2));
-            int32_t lnum = js_toInt32(lval);
-            int32_t rnum = js_toInt32(rval);
-            return js_new_number(lnum ^ rnum);
-        }
-        case OR_NODE: {
-            js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
-            js_data_t *rval = js_getValue(js_evalNode(context, node->_2));
-            int32_t lnum = js_toInt32(lval);
-            int32_t rnum = js_toInt32(rval);
-            return js_new_number(lnum | rnum);
-        }
         case L_AND_NODE: {
             js_data_t *lval = js_getValue(js_evalNode(context, node->_1));
             if (js_toBoolean(lval) == js_constFalse) {
@@ -373,18 +409,29 @@ js_data_t *js_evalBinaryNode(js_context_t *context, js_binary_node_t *node) {
             js_putValue(lref, rval);
             return rval;
         }
-        case MUL_ASSIGN_NODE:
-        case DIV_ASSIGN_NODE:
-        case MOD_ASSIGN_NODE:
-        case ADD_ASSIGN_NODE:
-        case SUB_ASSIGN_NODE:
-        case SHL_ASSIGN_NODE:
-        case SHR_ASSIGN_NODE:
-        case USHR_ASSIGN_NODE:
-        case AND_ASSIGN_NODE:
-        case XOR_ASSIGN_NODE:
-        case OR_ASSIGN_NODE:
-            assert(0);
+        {
+            enum js_binary_node_type_t opType;
+            case MUL_ASSIGN_NODE: opType = MUL_NODE; goto doOp;
+            case DIV_ASSIGN_NODE: opType = DIV_NODE; goto doOp;
+            case MOD_ASSIGN_NODE: opType = MOD_NODE; goto doOp;
+            case ADD_ASSIGN_NODE: opType = ADD_NODE; goto doOp;
+            case SUB_ASSIGN_NODE: opType = SUB_NODE; goto doOp;
+            case SHL_ASSIGN_NODE: opType = SHL_NODE; goto doOp;
+            case SHR_ASSIGN_NODE: opType = SHR_NODE; goto doOp;
+            case USHR_ASSIGN_NODE: opType = USHR_NODE; goto doOp;
+            case AND_ASSIGN_NODE: opType = AND_NODE; goto doOp;
+            case XOR_ASSIGN_NODE: opType = XOR_NODE; goto doOp;
+            case OR_ASSIGN_NODE: opType = OR_NODE; goto doOp;
+doOp: {
+                    js_data_t *lref = js_evalNode(context, node->_1);
+                    js_data_t *lval = js_getValue(lref);
+                    js_data_t *rval = js_getValue(js_evalNode(context, node->_2));
+                    js_data_t *r = doBinaryOp(opType, lval, rval);
+                    // Check whether it is assign to eval or arguments in strict mode
+                    js_putValue(lref, r);
+                    return r;
+                }
+            }
         case COMMA_NODE: {
             js_getValue(js_evalNode(context, node->_1));
             return js_getValue(js_evalNode(context, node->_2));

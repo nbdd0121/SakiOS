@@ -21,10 +21,10 @@ static js_data_t *grammar_argumentList(grammar_t *gmr);
 static js_data_t *grammar_leftHandSideExpr(grammar_t *gmr);
 static js_data_t *grammar_postfixExpr(grammar_t *gmr);
 static js_data_t *grammar_assignExpr(grammar_t *gmr);
-js_data_t *grammar_expr(grammar_t *gmr);
+static js_data_t *grammar_expr(grammar_t *gmr);
 
 
-static js_data_t *grammar_exprStmt(grammar_t *gmr);
+js_data_t *grammar_exprStmt(grammar_t *gmr);
 static js_data_t *grammar_debuggerStmt(grammar_t *gmr);
 
 static js_data_t *grammar_funcDecl(grammar_t *gmr);
@@ -102,7 +102,7 @@ grammar_t *grammar_new(lex_t *lex) {
  *                    | ObjectLiteral       LOOKAHEAD(1)=L_BRACE
  *                    | (Expression)        LOOKAHEAD(1)=L_PAREN
  */
-js_data_t *grammar_primaryExpr(grammar_t *gmr) {
+static js_data_t *grammar_primaryExpr(grammar_t *gmr) {
     gmr->lex->regexp = true;
     switch (lookahead(gmr)->type) {
         case THIS:
@@ -164,7 +164,7 @@ js_data_t *grammar_primaryExpr(grammar_t *gmr) {
  *      | . IdentifierName
  *  )*
  */
-js_data_t *grammar_memberExpr(grammar_t *gmr) {
+static js_data_t *grammar_memberExpr(grammar_t *gmr) {
     gmr->lex->regexp = true;
     js_data_t *cur;
     switch (lookahead(gmr)->type) {
@@ -258,34 +258,32 @@ static node_t *grammar_argumentList(grammar_t *gmr) {
             | [ Expression ]
  *      )*
  */
-js_data_t *grammar_leftHandSideExpr(grammar_t *gmr) {
+static js_data_t *grammar_leftHandSideExpr(grammar_t *gmr) {
     js_data_t *cur = grammar_memberExpr(gmr);
     while (1) {
         switch (lookahead(gmr)->type) {
-            /*case POINT: {
-                discard(gmr);
+            case POINT: {
+                next(gmr);
                 gmr->lex->parseId = false;
                 js_token_t *id = expect(gmr, ID);
                 gmr->lex->parseId = true;
-                member_expr_dot_node_t *node =
-                    (member_expr_dot_node_t *)createNode(MEMBER_EXPR_DOT_NODE, sizeof(member_expr_dot_node_t));
-                node->expr = cur;
-                moveString(&node->name, &id->stringValue);
-                lex_disposeToken(id);
-                cur = (node_t *)node;
+                js_binary_node_t *node = (js_binary_node_t *)js_allocBinaryNode(MEMBER_NODE);
+                node->_1 = cur;
+                node->_2 = id->value;
+                cur = (js_data_t *)node;
                 break;
             }
             case L_BRACKET: {
-                discard(gmr);
-                node_t *tk = grammar_expr(gmr);
-                expectAndDispose(gmr, R_BRACKET);
-                member_expr_bracket_node_t *node =
-                    (member_expr_bracket_node_t *)createNode(MEMBER_EXPR_BRACKET_NODE, sizeof(member_expr_bracket_node_t));
-                node->expr = cur;
-                node->name = tk;
-                cur = (node_t *)node;
+                next(gmr);
+                js_data_t *expr = grammar_expr(gmr);
+                expect(gmr, R_BRACKET);
+                js_binary_node_t *node = (js_binary_node_t *)js_allocBinaryNode(MEMBER_NODE);
+                node->_1 = cur;
+                node->_2 = expr;
+                cur = (js_data_t *)node;
                 break;
             }
+            /*
             case L_PAREN: {
                 node_t *args = grammar_arguments(gmr);
                 call_expr_node_t *node =
@@ -301,30 +299,30 @@ js_data_t *grammar_leftHandSideExpr(grammar_t *gmr) {
     }
 }
 
-js_data_t *grammar_postfixExpr(grammar_t *gmr) {
+static js_data_t *grammar_postfixExpr(grammar_t *gmr) {
     js_data_t *expr = grammar_leftHandSideExpr(gmr);
 
-    js_token_t *next = lookahead(gmr);
-    if (next->lineBefore) {
+    js_token_t *nxt = lookahead(gmr);
+    if (nxt->lineBefore) {
         return expr;
     }
 
-    /*if (next->type == INC) {
-        unary_node_t *node =
-            (unary_node_t *)createNode(POSTFIX_EXPR_INC_NODE, sizeof(unary_node_t));
-        node->first = expr;
-        return (node_t *)node;
-    } else if (next->type == DEC) {
-        unary_node_t *node =
-            (unary_node_t *)createNode(POSTFIX_EXPR_DEC_NODE, sizeof(unary_node_t));
-        node->first = expr;
-        return (node_t *)node;
-    }*/
+    if (nxt->type == INC) {
+        next(gmr);
+        js_unary_node_t *node = js_allocUnaryNode(POST_INC_NODE);
+        node->_1 = expr;
+        return (js_data_t *)node;
+    } else if (nxt->type == DEC) {
+        next(gmr);
+        js_unary_node_t *node = js_allocUnaryNode(POST_DEC_NODE);
+        node->_1 = expr;
+        return (js_data_t *)node;
+    }
 
     return expr;
 }
 
-js_data_t *grammar_unaryExpr(grammar_t *gmr) {
+static js_data_t *grammar_unaryExpr(grammar_t *gmr) {
     gmr->lex->regexp = true;
     uint16_t nodeClass;
     js_token_t *lh = lookahead(gmr);
@@ -340,10 +338,10 @@ js_data_t *grammar_unaryExpr(grammar_t *gmr) {
             nodeClass = TYPEOF_NODE;
             goto produceExpr;
         case INC:
-            nodeClass = INC_NODE;
+            nodeClass = PRE_INC_NODE;
             goto produceExpr;
         case DEC:
-            nodeClass = DEC_NODE;
+            nodeClass = PRE_DEC_NODE;
             goto produceExpr;
         case ADD:
             nodeClass = POS_NODE;
@@ -366,7 +364,7 @@ produceExpr:
     }
 }
 
-#define BINARY_HEAD(_name, _previous) js_data_t *grammar_##_name(grammar_t *gmr) {\
+#define BINARY_HEAD(_name, _previous) static js_data_t *grammar_##_name(grammar_t *gmr) {\
         js_data_t *cur = grammar_##_previous(gmr);\
         while (true) {\
             uint16_t type;\
@@ -455,7 +453,7 @@ static js_data_t *grammar_condExpr(grammar_t *gmr) {
     }
 }
 
-js_data_t *grammar_assignExpr(grammar_t *gmr) {
+static js_data_t *grammar_assignExpr(grammar_t *gmr) {
     js_data_t *node = grammar_condExpr(gmr);
     /* We do not care wether it is LeftHandSide. We can check it later */
     uint16_t type;
@@ -514,16 +512,16 @@ node_t *grammar_stmt(grammar_t *gmr) {
             return grammar_exprStmt(gmr);
         }
     }
-}
+}*/
 
-static node_t *grammar_exprStmt(grammar_t *gmr) {
-    node_t *expr = grammar_expr(gmr);
+js_data_t *grammar_exprStmt(grammar_t *gmr) {
+    js_data_t *expr = grammar_expr(gmr);
 
-    unary_node_t *node = (unary_node_t *)createNode(EXPR_STMT_NODE, sizeof(unary_node_t));
-    node->first = expr;
+    js_unary_node_t *node = js_allocUnaryNode(EXPR_STMT);
+    node->_1 = expr;
 
     expectSemicolon(gmr);
-    return node;
+    return (js_data_t *)node;
 }
 
 /*

@@ -32,9 +32,9 @@ int main() {
         .thisBinding = js_createGlobal()
     };
 
-    js_data_t *se = grammar_expr(gmr);
+    js_data_t *se = grammar_exprStmt(gmr);
     js_data_t *ret = js_getValue(js_evalNode(&context, se));
-
+    assert(0);
 
     js_string_t *str = js_toString(ret);
     unicode_putUtf16(str->value);

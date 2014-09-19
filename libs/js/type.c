@@ -43,6 +43,9 @@ js_data_t *js_alloc(enum js_data_type_t type) {
         case JS_INTERNAL_REF:
             size = sizeof(js_reference_t);
             break;
+        case JS_INTERNAL_COMPLETION:
+            size = sizeof(js_completion_t);
+            break;
         case JS_INTERNAL_PROPERTY:
             size = sizeof(js_property_t);
             break;
@@ -68,6 +71,14 @@ js_data_t *js_alloc(enum js_data_type_t type) {
     data->type = type;
     data->flag = 0;
     return data;
+}
+
+js_completion_t *js_allocCompletion(enum js_completion_type_t type) {
+    js_completion_t *comp = (js_completion_t *)js_alloc(JS_INTERNAL_COMPLETION);
+    comp->type = type;
+    comp->value = NULL;
+    comp->target = NULL;
+    return comp;
 }
 
 js_token_t *js_allocToken(enum js_token_type_t type) {
