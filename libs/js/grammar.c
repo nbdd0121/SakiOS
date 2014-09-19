@@ -1,5 +1,4 @@
 #include "js/js.h"
-#include "js/node.h"
 #include "c/stdlib.h"
 #include "unicode/hash.h"
 #include "c/assert.h"
@@ -8,58 +7,61 @@ typedef struct struct_grammar grammar_t;
 
 struct struct_grammar {
     lex_t *lex;
-    list_t list;
+    js_token_t *next;
     size_t listLen;
     bool noIn;
 };
 
-node_t *grammar_primaryExpr(grammar_t *gmr);
-node_t *grammar_memberExpr(grammar_t *gmr);
+#include "js/type.h"
 
-node_t *grammar_assignExpr(grammar_t *gmr);
-node_t *grammar_expr(grammar_t *gmr);
+static js_data_t *grammar_primaryExpr(grammar_t *gmr);
+static js_data_t *grammar_memberExpr(grammar_t *gmr);
+static js_data_t *grammar_arguments(grammar_t *gmr);
+static js_data_t *grammar_argumentList(grammar_t *gmr);
+static js_data_t *grammar_leftHandSideExpr(grammar_t *gmr);
+static js_data_t *grammar_postfixExpr(grammar_t *gmr);
+static js_data_t *grammar_assignExpr(grammar_t *gmr);
+js_data_t *grammar_expr(grammar_t *gmr);
 
 
-static node_t *grammar_exprStmt(grammar_t *gmr);
-static node_t *grammar_debuggerStmt(grammar_t *gmr);
+static js_data_t *grammar_exprStmt(grammar_t *gmr);
+static js_data_t *grammar_debuggerStmt(grammar_t *gmr);
 
-static node_t *grammar_arguments(grammar_t *gmr);
-static node_t *grammar_argumentList(grammar_t *gmr);
+static js_data_t *grammar_funcDecl(grammar_t *gmr);
+static js_data_t *grammar_funcExpr(grammar_t *gmr);
+static js_data_t *grammar_formalParamList(grammar_t *gmr);
+static js_data_t *grammar_funcBody(grammar_t *gmr);
 
-static node_t *grammar_funcDecl(grammar_t *gmr);
-static node_t *grammar_funcExpr(grammar_t *gmr);
-static node_t *grammar_formalParamList(grammar_t *gmr);
-static node_t *grammar_funcBody(grammar_t *gmr);
+js_data_t *grammar_program(grammar_t *gmr);
+static js_data_t *grammar_sourceElements(grammar_t *gmr);
+static js_data_t *grammar_sourceElement(grammar_t *gmr);
 
-node_t *grammar_program(grammar_t *gmr);
-static node_t *grammar_sourceElements(grammar_t *gmr);
-static node_t *grammar_sourceElement(grammar_t *gmr);
-
-static token_t *next(grammar_t *gmr) {
+static js_token_t *next(grammar_t *gmr) {
     if (gmr->listLen) {
         gmr->listLen--;
-        list_t *removed = gmr->list.next;
-        list_remove(removed);
-        return GET_DATA(removed, token_t, list);
+        js_token_t *removed = gmr->next;
+        gmr->next = removed->next;
+        return removed;
     } else {
-        token_t *ret = lex_next(gmr->lex);
+        js_token_t *ret = lex_next(gmr->lex);
         return ret;
     }
 }
 
-static void pushback(grammar_t *gmr, token_t *token) {
+static void pushback(grammar_t *gmr, js_token_t *token) {
     gmr->listLen++;
-    list_addFirst(&gmr->list, GET_LIST(token, list));
+    token->next = gmr->next;
+    gmr->next = token;
 }
 
-static token_t *lookahead(grammar_t *gmr) {
-    token_t *ret = next(gmr);
+static js_token_t *lookahead(grammar_t *gmr) {
+    js_token_t *ret = next(gmr);
     pushback(gmr, ret);
     return ret;
 }
 
-static token_t *expect(grammar_t *gmr, uint16_t type) {
-    token_t *ret = next(gmr);
+static js_token_t *expect(grammar_t *gmr, uint16_t type) {
+    js_token_t *ret = next(gmr);
     if (ret->type != type) {
         printf("SyntaxError: Encountered %d, but %d expected\n", ret->type, type);
         assert(0);
@@ -67,39 +69,15 @@ static token_t *expect(grammar_t *gmr, uint16_t type) {
     return ret;
 }
 
-static bool expectAndDispose(grammar_t *gmr, uint16_t type) {
-    token_t *token = expect(gmr, type);
-    if (token) {
-        lex_disposeToken(token);
-    }
-    return !!token;
-}
-
-static void discard(grammar_t *gmr) {
-    lex_disposeToken(next(gmr));
-}
-
-static node_t *createNode(enum node_class_t type, size_t size) {
-    node_t *node = malloc(size);
-    node->type = type;
-    node->next = NULL;
-    return node;
-}
-
-static void moveString(utf16_string_t *dest, utf16_string_t *src) {
-    *dest = *src;
-    src->str = NULL;
-}
-
 static bool expectSemicolon(grammar_t *gmr) {
     gmr->lex->regexp = true;
-    token_t *next = lookahead(gmr);
+    js_token_t *nxt = lookahead(gmr);
     gmr->lex->regexp = false;
-    if (next->type == SEMICOLON) {
-        discard(gmr);
+    if (nxt->type == SEMICOLON) {
+        next(gmr);
         return true;
     }
-    if (next->type == R_BRACE || next->lineBefore) {
+    if (nxt->type == R_BRACE || nxt->lineBefore) {
         return true;
     } else {
         assert(!"SyntaxError: Expected semicolon after statement.");
@@ -110,7 +88,7 @@ static bool expectSemicolon(grammar_t *gmr) {
 grammar_t *grammar_new(lex_t *lex) {
     grammar_t *gmr = malloc(sizeof(struct struct_grammar));
     gmr->lex = lex;
-    list_empty(&gmr->list);
+    gmr->next = NULL;
     gmr->listLen = 0;
     gmr->noIn = true;
     return gmr;
@@ -124,60 +102,47 @@ grammar_t *grammar_new(lex_t *lex) {
  *                    | ObjectLiteral       LOOKAHEAD(1)=L_BRACE
  *                    | (Expression)        LOOKAHEAD(1)=L_PAREN
  */
-node_t *grammar_primaryExpr(grammar_t *gmr) {
+js_data_t *grammar_primaryExpr(grammar_t *gmr) {
     gmr->lex->regexp = true;
     switch (lookahead(gmr)->type) {
         case THIS:
-            discard(gmr);
-            return createNode(PRIMARY_EXPR_THIS_NODE, sizeof(node_t));
-        case ID: {
-            token_t *id = next(gmr);
+            next(gmr);
+            return (js_data_t *)js_allocEmptyNode(THIS_NODE);
+        case ID: assert(0); /*{
+            js_token_t *id = next(gmr);
             primary_expr_id_node_t *node = (primary_expr_id_node_t *)createNode(PRIMARY_EXPR_ID_NODE, sizeof(literal_node_t));
             moveString(&node->name, &id->stringValue);
             lex_disposeToken(id);
             return (node_t *)node;
-        }
+        }*/
         case NULL_LIT: {
-            discard(gmr);
-            literal_node_t *node = (literal_node_t *)createNode(LITERAL_NODE, sizeof(literal_node_t));
-            SAKI_SET_NULL(node->value);
-            return (node_t *)node;
+            next(gmr);
+            return js_constNull;
         }
         case TRUE_LIT: {
-            discard(gmr);
-            literal_node_t *node = (literal_node_t *)createNode(LITERAL_NODE, sizeof(literal_node_t));
-            SAKI_SET_BOOLEAN(node->value, true);
-            return (node_t *)node;
+            next(gmr);
+            return js_constTrue;
         }
         case FALSE_LIT: {
-            discard(gmr);
-            literal_node_t *node = (literal_node_t *)createNode(LITERAL_NODE, sizeof(literal_node_t));
-            SAKI_SET_BOOLEAN(node->value, false);
-            return (node_t *)node;
+            next(gmr);
+            return js_constFalse;
         }
         case NUM: {
-            token_t *num = next(gmr);
-            literal_node_t *node = (literal_node_t *)createNode(LITERAL_NODE, sizeof(literal_node_t));
-            SAKI_SET_NUMBER(node->value, num->numberValue);
-            lex_disposeToken(num);
-            return (node_t *)node;
+            js_token_t *num = next(gmr);
+            return num->value;
         }
         case STR: {
-            token_t *str = next(gmr);
-            literal_node_t *node = (literal_node_t *)createNode(LITERAL_NODE, sizeof(literal_node_t));
-            SAKI_SET_STRING(node->value, str->stringValue);
-            str->stringValue.str = NULL;
-            lex_disposeToken(str);
-            return (node_t *)node;
+            js_token_t *str = next(gmr);
+            return str->value;
         }
         case REGEXP: {
             assert(0);
         }
 
         case L_PAREN: {
-            discard(gmr);
-            node_t *ret = grammar_expr(gmr);
-            expectAndDispose(gmr, R_PAREN);
+            next(gmr);
+            js_data_t *ret = grammar_expr(gmr);
+            expect(gmr, R_PAREN);
             return ret;
         }
         /* ArrayLiteral */
@@ -199,15 +164,16 @@ node_t *grammar_primaryExpr(grammar_t *gmr) {
  *      | . IdentifierName
  *  )*
  */
-node_t *grammar_memberExpr(grammar_t *gmr) {
+js_data_t *grammar_memberExpr(grammar_t *gmr) {
     gmr->lex->regexp = true;
-    node_t *cur;
+    js_data_t *cur;
     switch (lookahead(gmr)->type) {
         case FUNCTION: {
             assert(!"FunctionLiteral not supported yet");
             break;
         }
         case NEW: {
+            /*
             discard(gmr);
             node_t *node = grammar_memberExpr(gmr);
             node_t *args;
@@ -221,7 +187,8 @@ node_t *grammar_memberExpr(grammar_t *gmr) {
             newNode->expr = node;
             newNode->args = args;
             cur = (node_t *)newNode;
-            break;
+            break;*/
+            assert(0);
         }
         default:
             cur = grammar_primaryExpr(gmr);
@@ -231,27 +198,24 @@ node_t *grammar_memberExpr(grammar_t *gmr) {
     while (1) {
         switch (lookahead(gmr)->type) {
             case POINT: {
-                discard(gmr);
+                next(gmr);
                 gmr->lex->parseId = false;
-                token_t *id = expect(gmr, ID);
+                js_token_t *id = expect(gmr, ID);
                 gmr->lex->parseId = true;
-                member_expr_dot_node_t *node =
-                    (member_expr_dot_node_t *)createNode(MEMBER_EXPR_DOT_NODE, sizeof(member_expr_dot_node_t));
-                node->expr = cur;
-                moveString(&node->name, &id->stringValue);
-                lex_disposeToken(id);
-                cur = (node_t *)node;
+                js_binary_node_t *node = (js_binary_node_t *)js_allocBinaryNode(MEMBER_NODE);
+                node->_1 = cur;
+                node->_2 = id->value;
+                cur = (js_data_t *)node;
                 break;
             }
             case L_BRACKET: {
-                discard(gmr);
-                node_t *tk = grammar_expr(gmr);
-                expectAndDispose(gmr, R_BRACKET);
-                member_expr_bracket_node_t *node =
-                    (member_expr_bracket_node_t *)createNode(MEMBER_EXPR_BRACKET_NODE, sizeof(member_expr_bracket_node_t));
-                node->expr = cur;
-                node->name = tk;
-                cur = (node_t *)node;
+                next(gmr);
+                js_data_t *expr = grammar_expr(gmr);
+                expect(gmr, R_BRACKET);
+                js_binary_node_t *node = (js_binary_node_t *)js_allocBinaryNode(MEMBER_NODE);
+                node->_1 = cur;
+                node->_2 = expr;
+                cur = (js_data_t *)node;
                 break;
             }
             default:
@@ -262,7 +226,7 @@ node_t *grammar_memberExpr(grammar_t *gmr) {
 
 /*
  * Arguments := ( ArgumentList_opt )
- */
+ * /
 static node_t *grammar_arguments(grammar_t *gmr) {
     expectAndDispose(gmr, L_PAREN);
     if (lookahead(gmr)->type != R_PAREN) {
@@ -284,7 +248,7 @@ static node_t *grammar_argumentList(grammar_t *gmr) {
         cur = next;
     }
     return first;
-}
+}*/
 
 /*
  * LeftHandSideExpression := MemberExpression
@@ -294,14 +258,14 @@ static node_t *grammar_argumentList(grammar_t *gmr) {
             | [ Expression ]
  *      )*
  */
-node_t *grammar_leftHandSideExpr(grammar_t *gmr) {
-    node_t *cur = grammar_memberExpr(gmr);
+js_data_t *grammar_leftHandSideExpr(grammar_t *gmr) {
+    js_data_t *cur = grammar_memberExpr(gmr);
     while (1) {
         switch (lookahead(gmr)->type) {
-            case POINT: {
+            /*case POINT: {
                 discard(gmr);
                 gmr->lex->parseId = false;
-                token_t *id = expect(gmr, ID);
+                js_token_t *id = expect(gmr, ID);
                 gmr->lex->parseId = true;
                 member_expr_dot_node_t *node =
                     (member_expr_dot_node_t *)createNode(MEMBER_EXPR_DOT_NODE, sizeof(member_expr_dot_node_t));
@@ -330,22 +294,22 @@ node_t *grammar_leftHandSideExpr(grammar_t *gmr) {
                 node->args = args;
                 cur = (node_t *)node;
                 break;
-            }
+            }*/
             default:
                 return cur;
         }
     }
 }
 
-node_t *grammar_postfixExpr(grammar_t *gmr) {
-    node_t *expr = grammar_leftHandSideExpr(gmr);
+js_data_t *grammar_postfixExpr(grammar_t *gmr) {
+    js_data_t *expr = grammar_leftHandSideExpr(gmr);
 
-    token_t *next = lookahead(gmr);
+    js_token_t *next = lookahead(gmr);
     if (next->lineBefore) {
         return expr;
     }
 
-    if (next->type == INC) {
+    /*if (next->type == INC) {
         unary_node_t *node =
             (unary_node_t *)createNode(POSTFIX_EXPR_INC_NODE, sizeof(unary_node_t));
         node->first = expr;
@@ -355,173 +319,169 @@ node_t *grammar_postfixExpr(grammar_t *gmr) {
             (unary_node_t *)createNode(POSTFIX_EXPR_DEC_NODE, sizeof(unary_node_t));
         node->first = expr;
         return (node_t *)node;
-    }
+    }*/
 
     return expr;
 }
 
-node_t *grammar_unaryExpr(grammar_t *gmr) {
+js_data_t *grammar_unaryExpr(grammar_t *gmr) {
     gmr->lex->regexp = true;
     uint16_t nodeClass;
-    token_t *lh = lookahead(gmr);
+    js_token_t *lh = lookahead(gmr);
     gmr->lex->regexp = false;
     switch (lh->type) {
         case DELETE:
-            nodeClass = UNARY_EXPR_DELETE_NODE;
+            nodeClass = DELETE_NODE;
             goto produceExpr;
         case VOID:
-            nodeClass = UNARY_EXPR_VOID_NODE;
+            nodeClass = VOID_NODE;
             goto produceExpr;
         case TYPEOF:
-            nodeClass = UNARY_EXPR_TYPEOF_NODE;
+            nodeClass = TYPEOF_NODE;
             goto produceExpr;
         case INC:
-            nodeClass = UNARY_EXPR_INC_NODE;
+            nodeClass = INC_NODE;
             goto produceExpr;
         case DEC:
-            nodeClass = UNARY_EXPR_DEC_NODE;
+            nodeClass = DEC_NODE;
             goto produceExpr;
         case ADD:
-            nodeClass = UNARY_EXPR_POS_NODE;
+            nodeClass = POS_NODE;
             goto produceExpr;
         case SUB:
-            nodeClass = UNARY_EXPR_NEG_NODE;
+            nodeClass = NEG_NODE;
             goto produceExpr;
         case NOT:
-            nodeClass = UNARY_EXPR_NOT_NODE;
+            nodeClass = NOT_NODE;
             goto produceExpr;
         case L_NOT:
-            nodeClass = UNARY_EXPR_LNOT_NODE;
+            nodeClass = LNOT_NODE;
 produceExpr:
-            discard(gmr);
-            unary_node_t *node =
-                (unary_node_t *)createNode(nodeClass, sizeof(unary_node_t));
-            node->first = grammar_unaryExpr(gmr);
-            return (node_t *)node;
+            next(gmr);
+            js_unary_node_t *node = js_allocUnaryNode(nodeClass);
+            node->_1 = grammar_unaryExpr(gmr);
+            return (js_data_t *)node;
         default:
             return grammar_postfixExpr(gmr);
     }
 }
 
-#define BINARY_HEAD(_name, _previous) node_t *grammar_##_name(grammar_t *gmr) {\
-        node_t *cur = grammar_##_previous(gmr);\
+#define BINARY_HEAD(_name, _previous) js_data_t *grammar_##_name(grammar_t *gmr) {\
+        js_data_t *cur = grammar_##_previous(gmr);\
         while (true) {\
             uint16_t type;\
             switch (lookahead(gmr)->type) {
 
-#define BINARY_CASE(_prefix, _value) case _value: {\
-    type = _prefix##_##_value##_NODE;\
+#define BINARY_CASE(_value) case _value: {\
+    type = _value##_NODE;\
     break;\
 }\
  
 #define BINARY_FOOT(_previous) default:\
     return cur;\
     }\
-    discard(gmr);\
-    binary_node_t *node =\
-                         (binary_node_t *)createNode(type, sizeof(binary_node_t));\
-    node->first = cur;\
-    node->second = grammar_##_previous(gmr);\
-    cur = (node_t *)node;\
+    next(gmr);\
+    js_binary_node_t *node = js_allocBinaryNode(type);\
+    node->_1 = cur;\
+    node->_2 = grammar_##_previous(gmr);\
+    cur = (js_data_t *)node;\
     }\
     }
 
-#define BINARY_1(_name, _prefix, _previous, _first) \
+#define BINARY_1(_name, _previous, _first) \
     BINARY_HEAD(_name, _previous)\
-    BINARY_CASE(_prefix, _first)\
+    BINARY_CASE(_first)\
     BINARY_FOOT(_previous)
 
-#define BINARY_2(_name, _prefix, _previous, _first, _second) \
+#define BINARY_2(_name, _previous, _first, _second) \
     BINARY_HEAD(_name, _previous)\
-    BINARY_CASE(_prefix, _first)\
-    BINARY_CASE(_prefix, _second)\
+    BINARY_CASE(_first)\
+    BINARY_CASE(_second)\
     BINARY_FOOT(_previous)
 
-#define BINARY_3(_name, _prefix, _previous, _first, _second, _third) \
+#define BINARY_3(_name, _previous, _first, _second, _third) \
     BINARY_HEAD(_name, _previous)\
-    BINARY_CASE(_prefix, _first)\
-    BINARY_CASE(_prefix, _second)\
-    BINARY_CASE(_prefix, _third)\
+    BINARY_CASE(_first)\
+    BINARY_CASE(_second)\
+    BINARY_CASE(_third)\
     BINARY_FOOT(_previous)
 
-BINARY_3(mulExpr, MUL_EXPR, unaryExpr, MUL, MOD, DIV);
-BINARY_2(addExpr, ADD_EXPR, mulExpr, ADD, SUB);
-BINARY_3(shiftExpr, SHIFT_EXPR, addExpr, SHL, SHR, USHR);
+BINARY_3(mulExpr, unaryExpr, MUL, MOD, DIV);
+BINARY_2(addExpr, mulExpr, ADD, SUB);
+BINARY_3(shiftExpr, addExpr, SHL, SHR, USHR);
 
 BINARY_HEAD(relExpr, shiftExpr)
-BINARY_CASE(REL_EXPR, LT)
-BINARY_CASE(REL_EXPR, GT)
-BINARY_CASE(REL_EXPR, LTEQ)
-BINARY_CASE(REL_EXPR, GTEQ)
-BINARY_CASE(REL_EXPR, INSTANCEOF)
+BINARY_CASE(LT)
+BINARY_CASE(GT)
+BINARY_CASE(LTEQ)
+BINARY_CASE(GTEQ)
+BINARY_CASE(INSTANCEOF)
 case IN: {
     if (gmr->noIn) {
         return cur;
     }
-    type = REL_EXPR_IN_NODE;
+    type = IN_NODE;
     break;
 }
 BINARY_FOOT(shiftExpr);
 
 BINARY_HEAD(eqExpr, relExpr)
-BINARY_CASE(EQ_EXPR, EQ)
-BINARY_CASE(EQ_EXPR, INEQ)
-BINARY_CASE(EQ_EXPR, FULL_EQ)
-BINARY_CASE(EQ_EXPR, FULL_INEQ)
+BINARY_CASE(EQ)
+BINARY_CASE(INEQ)
+BINARY_CASE(FULL_EQ)
+BINARY_CASE(FULL_INEQ)
 BINARY_FOOT(relExpr)
 
-BINARY_1(andExpr, BITWISE_EXPR, eqExpr, AND)
-BINARY_1(xorExpr, BITWISE_EXPR, andExpr, XOR)
-BINARY_1(orExpr, BITWISE_EXPR, xorExpr, OR)
-BINARY_1(lAndExpr, LOGICAL_EXPR, orExpr, L_AND)
-BINARY_1(lOrExpr, LOGICAL_EXPR, lAndExpr, L_OR)
+BINARY_1(andExpr, eqExpr, AND)
+BINARY_1(xorExpr, andExpr, XOR)
+BINARY_1(orExpr, xorExpr, OR)
+BINARY_1(lAndExpr, orExpr, L_AND)
+BINARY_1(lOrExpr, lAndExpr, L_OR)
 
-static node_t *grammar_condExpr(grammar_t *gmr) {
-    node_t *node = grammar_lOrExpr(gmr);
+static js_data_t *grammar_condExpr(grammar_t *gmr) {
+    js_data_t *node = grammar_lOrExpr(gmr);
     if (lookahead(gmr)->type == QUESTION) {
-        discard(gmr);
-        node_t *t_exp = grammar_assignExpr(gmr);
-        expectAndDispose(gmr, COLON);
-        node_t *f_exp = grammar_assignExpr(gmr);
-        cond_node_t *ret =
-            (cond_node_t *)createNode(COND_EXPR_NODE, sizeof(cond_node_t));
-        ret->expr = node;
-        ret->true_expr = t_exp;
-        ret->false_expr = f_exp;
-        return (node_t *)ret;
+        next(gmr);
+        js_data_t *t_exp = grammar_assignExpr(gmr);
+        expect(gmr, COLON);
+        js_data_t *f_exp = grammar_assignExpr(gmr);
+        js_ternary_node_t *ret = js_allocTernaryNode(COND_NODE);
+        ret->_1 = node;
+        ret->_2 = t_exp;
+        ret->_3 = f_exp;
+        return (js_data_t *)ret;
     } else {
         return node;
     }
 }
 
-node_t *grammar_assignExpr(grammar_t *gmr) {
-    node_t *node = grammar_condExpr(gmr);
+js_data_t *grammar_assignExpr(grammar_t *gmr) {
+    js_data_t *node = grammar_condExpr(gmr);
     /* We do not care wether it is LeftHandSide. We can check it later */
     uint16_t type;
     switch (lookahead(gmr)->type) {
-        case ASSIGN: type = ASSIGN_EXPR_ASSIGN_NODE; break;
-        case MUL_ASSIGN: type = ASSIGN_EXPR_MUL_NODE; break;
-        case DIV_ASSIGN: type = ASSIGN_EXPR_DIV_NODE; break;
-        case MOD_ASSIGN: type = ASSIGN_EXPR_MOD_NODE; break;
-        case ADD_ASSIGN: type = ASSIGN_EXPR_ADD_NODE; break;
-        case SUB_ASSIGN: type = ASSIGN_EXPR_SUB_NODE; break;
-        case SHL_ASSIGN: type = ASSIGN_EXPR_SHL_NODE; break;
-        case SHR_ASSIGN: type = ASSIGN_EXPR_SHR_NODE; break;
-        case USHR_ASSIGN: type = ASSIGN_EXPR_USHR_NODE; break;
-        case AND_ASSIGN: type = ASSIGN_EXPR_AND_NODE; break;
-        case XOR_ASSIGN: type = ASSIGN_EXPR_XOR_NODE; break;
-        case OR_ASSIGN: type = ASSIGN_EXPR_OR_NODE; break;
+        case ASSIGN: type = ASSIGN_NODE; break;
+        case MUL_ASSIGN: type = MUL_ASSIGN_NODE; break;
+        case DIV_ASSIGN: type = DIV_ASSIGN_NODE; break;
+        case MOD_ASSIGN: type = MOD_ASSIGN_NODE; break;
+        case ADD_ASSIGN: type = ADD_ASSIGN_NODE; break;
+        case SUB_ASSIGN: type = SUB_ASSIGN_NODE; break;
+        case SHL_ASSIGN: type = SHL_ASSIGN_NODE; break;
+        case SHR_ASSIGN: type = SHR_ASSIGN_NODE; break;
+        case USHR_ASSIGN: type = USHR_ASSIGN_NODE; break;
+        case AND_ASSIGN: type = AND_ASSIGN_NODE; break;
+        case XOR_ASSIGN: type = XOR_ASSIGN_NODE; break;
+        case OR_ASSIGN: type = OR_ASSIGN_NODE; break;
         default: return node;
     }
-    discard(gmr);
-    binary_node_t *ass =
-        (binary_node_t *)createNode(type, sizeof(binary_node_t));
-    ass->first = node;
-    ass->second = grammar_assignExpr(gmr);
-    return (node_t *)ass;
+    next(gmr);
+    js_binary_node_t *ass = js_allocBinaryNode(type);
+    ass->_1 = node;
+    ass->_2 = grammar_assignExpr(gmr);
+    return (js_data_t *)ass;
 }
 
-BINARY_1(expr, EXPR, assignExpr, COMMA);
+BINARY_1(expr, assignExpr, COMMA);
 
 /*
  * Statement:= Block                    LOOKAHEAD(1)=L_BRACE
@@ -539,14 +499,14 @@ BINARY_1(expr, EXPR, assignExpr, COMMA);
  *           | ThrowStatement           LOOKAHEAD(1)=THROW
  *           | TryStatement             LOOKAHEAD(1)=TRY
  *           | DebuggerStatement        LOOKAHEAD(1)=DEBUGGER
-*/
+* /
 node_t *grammar_stmt(grammar_t *gmr) {
     gmr->lex->regexp = true;
-    token_t *next = lookahead(gmr);
+    js_token_t *nxt = lookahead(gmr);
     gmr->lex->regexp = false;
-    switch (next->type) {
+    switch (nxt->type) {
         case SEMICOLON:
-            discard(gmr);
+            next(gmr);
             return createNode(EMPTY_STMT_NODE, sizeof(node_t));
         case DEBUGGER:
             return grammar_debuggerStmt(gmr);
@@ -568,7 +528,7 @@ static node_t *grammar_exprStmt(grammar_t *gmr) {
 
 /*
  * DebuggerStatemenet := debugger ;         LOOKAHEAD(1)=DEBUGGER
- */
+ * /
 static node_t *grammar_debuggerStmt(grammar_t *gmr) {
     expectAndDispose(gmr, DEBUGGER);
     expectSemicolon(gmr);
@@ -586,7 +546,7 @@ static node_t *grammar_funcExpr(grammar_t *gmr) {
     function_node_t *func = (function_node_t *)createNode(FUNCTION_NODE, sizeof(function_node_t));
 
     if (lookahead(gmr)->type == ID) {
-        token_t *id = next(gmr);
+        js_token_t *id = next(gmr);
         moveString(&func->name, &id->stringValue);
         lex_disposeToken(id);
     } else {
@@ -614,9 +574,9 @@ static node_t *grammar_funcExpr(grammar_t *gmr) {
  * LOOKAHEAD(1) = Identifier
  *
  * FormalParameterList := Identifier {, Identifier}
- */
+ * /
 static node_t *grammar_formalParamList(grammar_t *gmr) {
-    token_t *id = expect(gmr, ID);
+    js_token_t *id = expect(gmr, ID);
 
     var_node_t *var = (var_node_t *)createNode(VAR_NODE, sizeof(var_node_t));
     moveString(&var->name, &id->stringValue);
@@ -624,7 +584,7 @@ static node_t *grammar_formalParamList(grammar_t *gmr) {
     var_node_t *last = var;
 
     while (lookahead(gmr)->type == COMMA) {
-        token_t *nextId = expect(gmr, ID);
+        js_token_t *nextId = expect(gmr, ID);
         var_node_t *cur = (var_node_t *)createNode(VAR_NODE, sizeof(var_node_t));
         moveString(&cur->name, &nextId->stringValue);
         lex_disposeToken(nextId);
@@ -637,7 +597,7 @@ static node_t *grammar_formalParamList(grammar_t *gmr) {
 
 static node_t *grammar_funcBody(grammar_t *gmr) {
     gmr->lex->regexp = true;
-    token_t *next = lookahead(gmr);
+    js_token_t *next = lookahead(gmr);
     gmr->lex->regexp = false;
     if (next->type == END_OF_FILE || next->type == R_BRACE) {
         return NULL;
@@ -654,7 +614,7 @@ static node_t *grammar_sourceElements(grammar_t *gmr) {
     node_t *cur = first;
     while (true) {
         gmr->lex->regexp = true;
-        token_t *next = lookahead(gmr);
+        js_token_t *next = lookahead(gmr);
         gmr->lex->regexp = false;
         if (next->type == END_OF_FILE || next->type == R_BRACE) {
             return first;
@@ -667,11 +627,11 @@ static node_t *grammar_sourceElements(grammar_t *gmr) {
 
 static node_t *grammar_sourceElement(grammar_t *gmr) {
     gmr->lex->regexp = true;
-    token_t *next = lookahead(gmr);
+    js_token_t *next = lookahead(gmr);
     gmr->lex->regexp = false;
     if (next->type == FUNCTION) {
         return grammar_funcDecl(gmr);
     } else {
         return grammar_stmt(gmr);
     }
-}
+}*/

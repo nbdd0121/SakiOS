@@ -22,6 +22,7 @@
         }\
     }while(0)
 
+__attribute__((noreturn))
 static inline void __assertFailed(const char *expr, const char *func, const char *file, int line) {
     printf("Assertion failed: %s, at %s (%s:%d)", expr, func, file, line);
     disableCPU();

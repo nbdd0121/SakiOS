@@ -8,6 +8,7 @@
 #include "data-struct/list.h"
 
 #include "c/string.h"
+#include "c/assert.h"
 #include "mem-alloc/pageman.h"
 #include "util/alignment.h"
 
@@ -70,19 +71,20 @@ pageman_t *pageman_create(void *base, size_t limit, void *firstAval, size_t firs
     /* Calculate the size of pageman_t structure */
     size_t pageCost = alignTo(totalSize + sizeof(pageman_t), PAGE_SIZE) / PAGE_SIZE;
     /* We need this argument basicly to check if condtion is satisfied */
-    if (pageCost > firstSize)
-        return NULL;
+    assert(pageCost <= firstSize);
     /* Initialize the sturcture */
     pageman_t *man = firstAval;
     man->base = base;
     man->limit = limit;
     man->spare = 0;
     memcpy(man->bitmaps, bitmaps, sizeof(bitmaps));
+    memset((unsigned char *)firstAval + sizeof(pageman_t), 0, totalSize);//TODO NEED?NEED.
     for (level = 0; level < TOTAL_LEVEL; level++)
         list_empty(man->lists + level);
     /* Since only the manager knows how much memory it used, we need
      * to free the first block inside this function */
     pageman_freeBlock(man, (void *)((size_t)firstAval + (size_t)PAGE_SIZE * pageCost), (firstSize - pageCost)*PAGE_SIZE);
+
     return man;
 }
 
@@ -131,7 +133,7 @@ void *pageman_alloc(pageman_t *bpm, size_t size) {
             return NULL;
         }
         /* Slice it ^_^ */
-        pageman_free(bpm, (void *)((size_t)addr + ((size_t)PAGE_SIZE << size)), size);
+        pageman_free(bpm, getBuddy(bpm->base, addr, size), size);
         return addr;
     } else {
         bpm->spare -= PAGE_SIZE << size;
@@ -139,6 +141,7 @@ void *pageman_alloc(pageman_t *bpm, size_t size) {
         list_t *first = bpm->lists[size].next;
         /* Remove the block from the spare list */
         list_remove(first);
+
         /* Set the bit in the bitmap */
         bitmap_switch(bpm->bitmaps[size], getOffset(bpm->base, first, size));
         return first;
@@ -159,9 +162,9 @@ void pageman_freeBlock(pageman_t *bpm, void *addr, size_t size) {
     size = alignDown(size, PAGE_SIZE);
 
     /* These two following loops just slice the memory into aligned pieces and free them */
-    size_t i;
+    size_t i, single_size;
     for (i = 0; i <= TOTAL_LEVEL; i++) {
-        size_t single_size = (size_t)PAGE_SIZE << i;
+        single_size = (size_t)PAGE_SIZE << i;
         if ((off & single_size) && (size >= single_size)) {
             pageman_free(bpm, (void *)((size_t)bpm->base + off), i);
             off += single_size;
@@ -169,8 +172,15 @@ void pageman_freeBlock(pageman_t *bpm, void *addr, size_t size) {
         }
     }
 
-    for (i = TOTAL_LEVEL; i != (size_t) - 1; i--) {
-        size_t single_size = (size_t)PAGE_SIZE << i;
+    single_size = (size_t)PAGE_SIZE << TOTAL_LEVEL;
+    while (size >= single_size) {
+        pageman_free(bpm, (void *)((size_t)bpm->base + off), i);
+        off += single_size;
+        size -= single_size;
+    }
+
+    for (i = TOTAL_LEVEL - 1; i != (size_t) - 1; i--) {
+        single_size = (size_t)PAGE_SIZE << i;
         if (size >= single_size) {
             pageman_free(bpm, (void *)((size_t)bpm->base + off), i);
             off += single_size;

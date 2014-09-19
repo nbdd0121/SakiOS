@@ -131,31 +131,16 @@ static utf16_string_t cleanBuffer(lex_t *lex) {
     return ret;
 }
 
-static token_t *createToken(uint16_t type) {
-    token_t *token = malloc(sizeof(struct struct_token));
-    token->type = type;
-    return token;
-}
+static js_token_t *stateDefault(lex_t *lex);
+static js_token_t *stateSingleLineComment(lex_t *lex);
+static js_token_t *stateMultiLineComment(lex_t *lex);
+static js_token_t *stateIdentiferPart(lex_t *lex);
+static js_token_t *stateHexIntegerLiteral(lex_t *lex);
+static js_token_t *stateOctIntegerLiteral(lex_t *lex);
+static js_token_t *stateDoubleString(lex_t *lex);
+static js_token_t *stateSingleString(lex_t *lex);
 
-void lex_disposeToken(token_t *tk) {
-    if (tk->type == ID || tk->type == STR) {
-        if (tk->stringValue.str) {
-            free(tk->stringValue.str);
-        }
-    }
-    free(tk);
-}
-
-static token_t *stateDefault(lex_t *lex);
-static token_t *stateSingleLineComment(lex_t *lex);
-static token_t *stateMultiLineComment(lex_t *lex);
-static token_t *stateIdentiferPart(lex_t *lex);
-static token_t *stateHexIntegerLiteral(lex_t *lex);
-static token_t *stateOctIntegerLiteral(lex_t *lex);
-static token_t *stateDoubleString(lex_t *lex);
-static token_t *stateSingleString(lex_t *lex);
-
-static token_t *stateDefault(lex_t *lex) {
+static js_token_t *stateDefault(lex_t *lex) {
     uint16_t next = lex->next(lex);
     switch (next) {
         case TAB:
@@ -190,9 +175,9 @@ static token_t *stateDefault(lex_t *lex) {
                 } else {
                     if (lex->lookahead(lex) == '=') {
                         lex->next(lex);
-                        return createToken(DIV_ASSIGN);
+                        return js_allocToken(DIV_ASSIGN);
                     } else {
-                        return createToken(DIV);
+                        return js_allocToken(DIV);
                     }
                 }
             }
@@ -220,49 +205,49 @@ static token_t *stateDefault(lex_t *lex) {
         case '~':
         case '?':
         case ':': {
-            return createToken(next);
+            return js_allocToken(next);
         }
         case '<': {
             uint16_t nch = lex->lookahead(lex);
             if (nch == '=') {
                 lex->next(lex);
-                return createToken(LTEQ);
+                return js_allocToken(LTEQ);
             } else if (nch == '<') {
                 lex->next(lex);
                 if (lex->lookahead(lex) == '=') {
                     lex->next(lex);
-                    return createToken(SHL_ASSIGN);
+                    return js_allocToken(SHL_ASSIGN);
                 } else {
-                    return createToken(SHL);
+                    return js_allocToken(SHL);
                 }
             } else {
-                return createToken(LT);
+                return js_allocToken(LT);
             }
         }
         case '>': {
             uint16_t nch = lex->lookahead(lex);
             if (nch == '=') {
                 lex->next(lex);
-                return createToken(GTEQ);
+                return js_allocToken(GTEQ);
             } else if (nch == '>') {
                 lex->next(lex);
                 uint16_t n2ch = lex->lookahead(lex);
                 if (n2ch == '=') {
                     lex->next(lex);
-                    return createToken(SHR_ASSIGN);
+                    return js_allocToken(SHR_ASSIGN);
                 } else if (n2ch == '>') {
                     lex->next(lex);
                     if (lex->lookahead(lex) == '=') {
                         lex->next(lex);
-                        return createToken(USHR_ASSIGN);
+                        return js_allocToken(USHR_ASSIGN);
                     } else {
-                        return createToken(USHR);
+                        return js_allocToken(USHR);
                     }
                 } else {
-                    return createToken(SHR);
+                    return js_allocToken(SHR);
                 }
             } else {
-                return createToken(GT);
+                return js_allocToken(GT);
             }
         }
         case '=':
@@ -271,12 +256,12 @@ static token_t *stateDefault(lex_t *lex) {
                 lex->next(lex);
                 if (lex->lookahead(lex) == '=') {
                     lex->next(lex);
-                    return createToken(next == '=' ? FULL_EQ : FULL_INEQ);
+                    return js_allocToken(next == '=' ? FULL_EQ : FULL_INEQ);
                 } else {
-                    return createToken(next | ASSIGN_FLAG);
+                    return js_allocToken(next | ASSIGN_FLAG);
                 }
             } else {
-                return createToken(next);
+                return js_allocToken(next);
             }
         }
         case '+':
@@ -286,12 +271,12 @@ static token_t *stateDefault(lex_t *lex) {
             uint16_t nch = lex->lookahead(lex);
             if (nch == '=') {
                 lex->next(lex);
-                return createToken(next | ASSIGN_FLAG);
+                return js_allocToken(next | ASSIGN_FLAG);
             } else if (nch == next) {
                 lex->next(lex);
-                return createToken(next | DOUBLE_FLAG);
+                return js_allocToken(next | DOUBLE_FLAG);
             } else {
-                return createToken(next);
+                return js_allocToken(next);
             }
         }
         case '*':
@@ -299,9 +284,9 @@ static token_t *stateDefault(lex_t *lex) {
         case '^': {
             if (lex->lookahead(lex) == '=') {
                 lex->next(lex);
-                return createToken(next | ASSIGN_FLAG);
+                return js_allocToken(next | ASSIGN_FLAG);
             } else {
-                return createToken(next);
+                return js_allocToken(next);
             }
         }
         case '0': {
@@ -344,7 +329,7 @@ static token_t *stateDefault(lex_t *lex) {
         }
         case 0xFFFF: {
             lex->lineBefore = true;
-            return createToken(END_OF_FILE);
+            return js_allocToken(END_OF_FILE);
         }
     }
 
@@ -368,7 +353,7 @@ static token_t *stateDefault(lex_t *lex) {
     return NULL;
 }
 
-static token_t *stateSingleLineComment(lex_t *lex) {
+static js_token_t *stateSingleLineComment(lex_t *lex) {
     uint16_t next = lex->lookahead(lex);
     switch (next) {
         case CR:
@@ -383,7 +368,7 @@ static token_t *stateSingleLineComment(lex_t *lex) {
     return NULL;
 }
 
-static token_t *stateMultiLineComment(lex_t *lex) {
+static js_token_t *stateMultiLineComment(lex_t *lex) {
     uint16_t next = lex->next(lex);
     switch (next) {
         case '*': {
@@ -403,7 +388,7 @@ static token_t *stateMultiLineComment(lex_t *lex) {
     return NULL;
 }
 
-static token_t *stateIdentiferPart(lex_t *lex) {
+static js_token_t *stateIdentiferPart(lex_t *lex) {
     uint16_t next = lex->lookahead(lex);
     switch (next) {
         case '$':
@@ -436,12 +421,11 @@ static token_t *stateIdentiferPart(lex_t *lex) {
         }
     }
     lex->state = stateDefault;
-
     utf16_string_t str = cleanBuffer(lex);
 
     if (!lex->parseId) {
-        token_t *token = createToken(ID);
-        token->stringValue = str;
+        js_token_t *token = js_allocToken(ID);
+        token->value = (js_data_t *)js_new_string(str);
         return token;
     }
 
@@ -454,21 +438,20 @@ static token_t *stateIdentiferPart(lex_t *lex) {
             type = 0;
         }
     }
-
     if (!type) {
-        token_t *token = createToken(ID);
-        token->stringValue = str;
+        js_token_t *token = js_allocToken(ID);
+        token->value = (js_data_t *)js_new_string(str);
         return token;
     } else if (type == RESERVED_WORD) {
         assert(!"SyntaxError: Unexpected reserved word.");
         return NULL;
     } else {
         free(str.str);
-        return createToken(type);
+        return js_allocToken(type);
     }
 }
 
-static token_t *stateOctIntegerLiteral(lex_t *lex) {
+static js_token_t *stateOctIntegerLiteral(lex_t *lex) {
     uint16_t next = lex->lookahead(lex);
     if (next >= '0' && next <= '7') {
         lex->next(lex);
@@ -489,25 +472,25 @@ static token_t *stateOctIntegerLiteral(lex_t *lex) {
 
         lex->state = stateDefault;
 
-        token_t *token = createToken(NUM);
-        token->numberValue = lex->data.number;
+        js_token_t *token = js_allocToken(NUM);
+        token->value = js_new_number(lex->data.number);
 
         return token;
     }
     return NULL;
 }
 
-static token_t *stateHexIntegerLiteral(lex_t *lex) {
+static js_token_t *stateHexIntegerLiteral(lex_t *lex) {
     uint16_t next = lex->lookahead(lex);
     if (next >= '0' && next <= '9') {
         lex->next(lex);
-        lex->data.number = lex->data.number * 16 + (next - '0');
+        lex->data.number = lex->data.number * 16. + (next - '0');
     } else if (next >= 'a' && next <= 'f') {
         lex->next(lex);
-        lex->data.number = lex->data.number * 16 + 10 + (next - 'a');
+        lex->data.number = lex->data.number * 16. + (10 + (next - 'a'));
     } else if (next >= 'A' && next <= 'F') {
         lex->next(lex);
-        lex->data.number = lex->data.number * 16 + 10 + (next - 'a');
+        lex->data.number = lex->data.number * 16. + (10 + (next - 'A'));
     } else {
         if (next == '$' || next == '_' || next == '\\') {
             assert(!"SyntaxError: Unexpected character after number literal.");
@@ -524,8 +507,8 @@ static token_t *stateHexIntegerLiteral(lex_t *lex) {
 
         lex->state = stateDefault;
 
-        token_t *token = createToken(NUM);
-        token->numberValue = lex->data.number;
+        js_token_t *token = js_allocToken(NUM);
+        token->value = js_new_number(lex->data.number);
 
         return token;
     }
@@ -550,14 +533,14 @@ static void dealEscapeSequence(lex_t *lex) {
     }
 }
 
-static token_t *stateDoubleString(lex_t *lex) {
+static js_token_t *stateDoubleString(lex_t *lex) {
     uint16_t next = lex->next(lex);
     switch (next) {
         case '"': {
             lex->state = stateDefault;
 
-            token_t *token = createToken(STR);
-            token->stringValue = cleanBuffer(lex);
+            js_token_t *token = js_allocToken(STR);
+            token->value = (js_data_t *)js_new_string(cleanBuffer(lex));
 
             return token;
         }
@@ -578,14 +561,14 @@ static token_t *stateDoubleString(lex_t *lex) {
     }
 }
 
-static token_t *stateSingleString(lex_t *lex) {
+static js_token_t *stateSingleString(lex_t *lex) {
     uint16_t next = lex->next(lex);
     switch (next) {
         case '\'': {
             lex->state = stateDefault;
 
-            token_t *token = createToken(STR);
-            token->stringValue = cleanBuffer(lex);
+            js_token_t *token = js_allocToken(STR);
+            token->value = (js_data_t *)js_new_string(cleanBuffer(lex));
 
             return token;
         }
@@ -620,9 +603,9 @@ lex_t *lex_new(char *chr) {
     return l;
 }
 
-token_t *lex_next(lex_t *lex) {
+js_token_t *lex_next(lex_t *lex) {
     while (1) {
-        token_t *ret = lex->state(lex);
+        js_token_t *ret = lex->state(lex);
         if (ret) {
             ret->lineBefore = lex->lineBefore;
             lex->lineBefore = false;
@@ -631,92 +614,3 @@ token_t *lex_next(lex_t *lex) {
     }
 }
 
-void examine_token(token_t *ret) {
-    if (ret->lineBefore) {
-        printf("(line)");
-    }
-    if (ret->type < ASSIGN_FLAG) {
-        printf("(%c)", ret->type);
-    } else if (ret->type < DOUBLE_FLAG) {
-        printf("(%c=)", ret->type & ~ ASSIGN_FLAG);
-    } else if (ret->type < OTHER_FLAG) {
-        printf("(%c=)", ret->type & ~ DOUBLE_FLAG);
-    } else {
-        switch (ret->type) {
-            case FULL_EQ: {
-                printf("(===)");
-                break;
-            }
-            case FULL_INEQ: {
-                printf("(!==)");
-                break;
-            }
-            case SHL: {
-                printf("(<<)");
-                break;
-            }
-            case SHR: {
-                printf("(>>)");
-                break;
-            }
-            case USHR: {
-                printf("(>>>)");
-                break;
-            }
-            case SHL_ASSIGN: {
-                printf("(<<=)");
-                break;
-            }
-            case SHR_ASSIGN: {
-                printf("(>>=)");
-                break;
-            }
-            case USHR_ASSIGN: {
-                printf("(>>>=)");
-                break;
-            }
-            case STR: {
-                utf8_string_t str = unicode_toUtf8(ret->stringValue);
-                printf("(STR, %.*s)", str.len, str.str);
-                break;
-            }
-            case ID: {
-                utf8_string_t str = unicode_toUtf8(ret->stringValue);
-                printf("(ID, %.*s)", str.len, str.str);
-                break;
-            }
-            case NUM: {
-                printf("(NUM, %d)", (size_t)ret->numberValue);
-                break;
-            }
-            case BREAK: printf("(break"); break;
-            case CASE: printf("(case)"); break;
-            case CATCH: printf("(catch)"); break;
-            case CONTINUE: printf("(continue)"); break;
-            case DEBUGGER: printf("(debugger)"); break;
-            case DEFAULT: printf("(default)"); break;
-            case DELETE: printf("(delete)"); break;
-            case DO: printf("(do)"); break;
-            case ELSE: printf("(else)"); break;
-            case FINALLY: printf("(finally)"); break;
-            case FOR: printf("(for)"); break;
-            case FUNCTION: printf("(function)"); break;
-            case IF: printf("(if)"); break;
-            case IN: printf("(in)"); break;
-            case INSTANCEOF: printf("(instanceof)"); break;
-            case NEW: printf("(new)"); break;
-            case RETURN: printf("(return)"); break;
-            case SWITCH: printf("(switch)"); break;
-            case THIS: printf("(this)"); break;
-            case THROW: printf("(throw)"); break;
-            case TRY: printf("(try)"); break;
-            case TYPEOF: printf("(typeof)"); break;
-            case VAR: printf("(var)"); break;
-            case VOID: printf("(void)"); break;
-            case WHILE: printf("(while)"); break;
-            case WITH: printf("(with)"); break;
-            default:
-                assert(0);
-        }
-    }
-}

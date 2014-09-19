@@ -9,6 +9,7 @@
 #include "c/stdio.h"
 #include "c/assert.h"
 #include "c/string.h"
+#include "c/math.h"
 
 #include "mem-alloc/pageman.h"
 #include "c-stdlib/malloc.h"
@@ -114,8 +115,7 @@ void main(void) {
     memMapPtr = map;
 
     /* Print all memory entries */
-    int i;
-    for (i = 0; i < memMapEntryLen; i++) {
+    for (int i = 0; i < memMapEntryLen; i++) {
         memmap_entry_t *entry = &memMapPtr[i];
         if (entry->base <= 0xFFFFFFFF) {
             if (entry->type > 5 || entry->type == 0) {
@@ -156,10 +156,20 @@ void main(void) {
 
     EXPORT(strlen);
     EXPORT(memcmp);
+    EXPORT(memset);
+    EXPORT(memcpy);
 
     EXPORT(malloc);
     EXPORT(free);
     EXPORT(realloc);
+
+    EXPORT(isnan);
+    EXPORT(isinf);
+    EXPORT(fabs);
+    EXPORT(log10);
+    EXPORT(pow);
+    EXPORT(floor);
+    EXPORT(fmod);
 
     /* VFS */
     EXPORT(vfs_read);
@@ -176,6 +186,9 @@ void main(void) {
     EXPORT(hashmap_new);
     EXPORT(hashmap_put);
     EXPORT(hashmap_get);
+    EXPORT(hashmap_remove);
+    EXPORT(hashmap_iterator);
+    EXPORT(hashmap_next);
 
     /* Symbol Table */
     EXPORT(add_symbol);
@@ -185,5 +198,6 @@ void main(void) {
     link_elf32(content);
     exec_elf32(content);
 }
+
 
 
