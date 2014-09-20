@@ -114,5 +114,7 @@ void unicode_putUtf8(utf8_string_t utf8) {
 }
 
 void unicode_putUtf16(utf16_string_t utf16) {
-    unicode_putUtf8(unicode_toUtf8(utf16));
+    utf8_string_t u8=unicode_toUtf8(utf16);
+    unicode_putUtf8(u8);
+    free(u8.str);
 }
