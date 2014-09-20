@@ -17,8 +17,6 @@
 #include "util/alignment.h"
 #include "util/log2.h"
 
-#pragma pack(1)
-
 enum {
     PAGE_SIZE = 4096,
     BLOCK_SIZE = sizeof(size_t) * 2,

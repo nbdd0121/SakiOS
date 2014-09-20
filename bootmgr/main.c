@@ -19,13 +19,11 @@
 
 #include "bootmgr/vfs.h"
 
-#pragma pack(1)
-
 typedef struct {
     uint64_t base;
     uint64_t limit;
     uint32_t type;
-} memmap_entry_t;
+}__attribute__((packed)) memmap_entry_t;
 
 extern uint8_t memMapEntryLen;
 extern memmap_entry_t *memMapPtr;

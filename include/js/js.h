@@ -6,8 +6,6 @@
 #include "c/stdbool.h"
 #include "js/type.h"
 
-#pragma pack(1)
-
 typedef struct struct_lex lex_t;
 
 struct struct_lex {

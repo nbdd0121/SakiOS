@@ -5,8 +5,6 @@
 #include "data-struct/hashmap.h"
 #include "unicode/convert.h"
 
-#pragma pack(1)
-
 enum js_data_type_t {
     JS_NULL,
     JS_UNDEFINED,

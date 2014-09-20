@@ -10,8 +10,6 @@
 
 #include "c/stdint.h"
 
-#pragma pack(1)
-
 typedef struct struct_fs_node_t fs_node_t;
 
 typedef struct struct_fs_op_t {

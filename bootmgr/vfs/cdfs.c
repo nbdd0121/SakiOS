@@ -28,7 +28,7 @@ typedef struct {
     uint16_t volSeqNumM;
     uint8_t nameLen;
     char fileName[1];
-} dir_rec_t;
+}__attribute__((packed)) dir_rec_t;
 
 typedef struct {
     uint8_t typeCode;
@@ -54,12 +54,12 @@ typedef struct {
     uint32_t pathTableLocM;
     uint32_t pathTableLocOptM;
     dir_rec_t rootDir;
-} prim_vol_desc_t;
+}__attribute__((packed)) prim_vol_desc_t;
 
 typedef struct {
     char id[2];
     uint8_t length;
-} sys_use_entry_t;
+}__attribute__((packed)) sys_use_entry_t;
 
 typedef struct {
     fs_node_t *cdrom;

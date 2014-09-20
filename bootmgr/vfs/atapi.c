@@ -8,8 +8,6 @@
 #include "asm/asm.h"
 #include "bootmgr/vfs.h"
 
-#pragma pack(1)
-
 enum {
     ATA_PRIMARY = 0x1F0,
     ATA_SECONDARY = 0x170,
