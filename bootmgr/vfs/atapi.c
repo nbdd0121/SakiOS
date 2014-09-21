@@ -155,7 +155,7 @@ static bool ATAPI_readSector(atapi_data_t *data, char *buffer, uint32_t lba) {
     packet[4] = (lba >> 8) & 0xFF;
     packet[5] = lba & 0xFF;
     int count = ATAPI_packet(data, 2048, packet, 12);
-    if (count != 2048)return false;
+    assert(count == 2048);
     repReadPort16(data->bus + ATA_DATA, buffer, count);
     return true;
 }
@@ -192,6 +192,7 @@ static uint64_t read(fs_node_t *node, uint64_t _offset, uint64_t _size, void *bu
 
 fs_node_t *ATAPI_init(void) {
     buf = malloc(2048);
+    printf("[ATAPI BUFFER %p]", buf);
 
     if (ATAPI_identify(&device)) {
         printf("[INFO] [ATAPI]: Secondary Master detected\n");

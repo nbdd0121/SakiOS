@@ -36,7 +36,13 @@ typedef struct struct_block_t {
 } block_t;
 
 static size_t getPagePow(size_t size) {
-    return log2(alignTo(size, PAGE_SIZE) / PAGE_SIZE);
+    size_t pageNum = alignTo(size, PAGE_SIZE) / PAGE_SIZE;
+    size_t numLog2 = log2(pageNum);
+    if (1 << numLog2 == pageNum) {
+        return numLog2;
+    } else {
+        return numLog2 + 1;
+    }
 }
 
 static inline block_t *nextBlock(block_t *this) {

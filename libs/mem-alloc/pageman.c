@@ -141,7 +141,6 @@ void *pageman_alloc(pageman_t *bpm, size_t size) {
         list_t *first = bpm->lists[size].next;
         /* Remove the block from the spare list */
         list_remove(first);
-
         /* Set the bit in the bitmap */
         bitmap_switch(bpm->bitmaps[size], getOffset(bpm->base, first, size));
         return first;

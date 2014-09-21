@@ -36,8 +36,7 @@ static uint32_t resolve_symbol(Elf32_Ehdr *header, char *strtab, Elf32_Sym *symb
             char *name = strtab + symbol->st_name;
             uint32_t ret = resolve_external_symbol(name);
 
-            if (strcmp(strtab + symbol->st_name, "keywords") == 0)
-                printf("[DEFAULT %s]", strtab + symbol->st_name);
+            // printf("[Symbol %s]", strtab + symbol->st_name);
 
             if (ret) {
                 /* Cache the result */
@@ -46,6 +45,9 @@ static uint32_t resolve_symbol(Elf32_Ehdr *header, char *strtab, Elf32_Sym *symb
                 return ret;
             }
             if (!(ELF32_ST_BIND(symbol->st_info) & STB_WEAK)) {
+                for (int i = 0x400; i < 0x800; i++) {
+                    putchar(strtab[i]);
+                }
                 printf("[ERROR] [ELF] Failed to resolve %s\n", name);
                 assert(0);
             }
