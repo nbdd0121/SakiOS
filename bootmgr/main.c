@@ -9,20 +9,21 @@
 #include "c/stdio.h"
 #include "c/assert.h"
 #include "c/string.h"
+#include "c/math.h"
 
 #include "mem-alloc/pageman.h"
 #include "c-stdlib/malloc.h"
 #include "asm/asm.h"
 
-#include "bootmgr/vfs.h"
+#include "data-struct/hashmap.h"
 
-#pragma pack(1)
+#include "bootmgr/vfs.h"
 
 typedef struct {
     uint64_t base;
     uint64_t limit;
     uint32_t type;
-} memmap_entry_t;
+} __attribute__((packed)) memmap_entry_t;
 
 extern uint8_t memMapEntryLen;
 extern memmap_entry_t *memMapPtr;
@@ -112,8 +113,7 @@ void main(void) {
     memMapPtr = map;
 
     /* Print all memory entries */
-    int i;
-    for (i = 0; i < memMapEntryLen; i++) {
+    for (int i = 0; i < memMapEntryLen; i++) {
         memmap_entry_t *entry = &memMapPtr[i];
         if (entry->base <= 0xFFFFFFFF) {
             if (entry->type > 5 || entry->type == 0) {
@@ -154,10 +154,20 @@ void main(void) {
 
     EXPORT(strlen);
     EXPORT(memcmp);
+    EXPORT(memset);
+    EXPORT(memcpy);
 
     EXPORT(malloc);
     EXPORT(free);
     EXPORT(realloc);
+
+    EXPORT(isnan);
+    EXPORT(isinf);
+    EXPORT(fabs);
+    EXPORT(log10);
+    EXPORT(pow);
+    EXPORT(floor);
+    EXPORT(fmod);
 
     /* VFS */
     EXPORT(vfs_read);
@@ -170,6 +180,14 @@ void main(void) {
     EXPORT(vfs_mount);
     EXPORT(vfs_mount_fs);
 
+    /* Hashmap */
+    EXPORT(hashmap_new);
+    EXPORT(hashmap_put);
+    EXPORT(hashmap_get);
+    EXPORT(hashmap_remove);
+    EXPORT(hashmap_iterator);
+    EXPORT(hashmap_next);
+
     /* Symbol Table */
     EXPORT(add_symbol);
     EXPORT(link_elf32);
@@ -178,5 +196,6 @@ void main(void) {
     link_elf32(content);
     exec_elf32(content);
 }
+
 
 

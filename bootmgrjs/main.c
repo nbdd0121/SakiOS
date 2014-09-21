@@ -9,6 +9,9 @@
 #include "unicode/convert.h"
 
 #include "js/js.h"
+#include "js/type.h"
+
+#include "c/math.h"
 
 #define debugVar(var) printf(#var "=%d\n", (var));
 
@@ -19,8 +22,24 @@ int main() {
     vfs_read(node, 0, node->length, buffer);
     buffer[node->length] = 0;
 
+    js_init();
+
     lex_t *lex = lex_new(buffer);
-    lex_next(lex);
+    grammar_t *gmr = grammar_new(lex);
+
+    //grammar_program(gmr);
+    js_context_t context = {
+        .thisBinding = js_createGlobal()
+    };
+
+    js_data_t *se = grammar_exprStmt(gmr);
+    js_data_t *ret = js_getValue(js_evalNode(&context, se));
+    assert(0);
+
+    js_string_t *str = js_toString(ret);
+    unicode_putUtf16(str->value);
+
+    //js_toString(js_new_number(12345));
 
     return 0;
 }

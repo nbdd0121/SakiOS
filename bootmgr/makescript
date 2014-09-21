@@ -28,7 +28,7 @@ var cFlags = (
   "-I ../include/ -I ./ " +
   "-m32 -Os -c -g -fno-builtin -fno-stack-protector " +
   "-fno-signed-char -funsigned-char -Wimplicit -ffreestanding -mno-red-zone -mno-mmx -mno-sse -mno-sse2 " +
-  "-mno-sse3 -mno-3dnow -Wall --std=c99"
+  "-mno-sse3 -mno-3dnow -Wall --std=gnu99"
 ).split(" ");
 
 /* Helper functions */

@@ -7,7 +7,7 @@
 #ifndef DATA_STRUCT_LIST_H
 #define DATA_STRUCT_LIST_H
 
-#include "stdbool.h"
+#include "c/stdbool.h"
 
 #define ENABLE_LIST(name) list_t name
 

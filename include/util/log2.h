@@ -11,7 +11,7 @@
 
 static inline size_t log2(size_t num) {
     size_t ret;
-    __asm__ __volatile__("bsr %1, %0":"=r"(ret):"r"(num));
+    __asm__ __volatile__("bsr %1, %0":"=r"(ret):"r"(num):"cc");
     return ret;
 }
 

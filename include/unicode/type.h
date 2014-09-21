@@ -4,8 +4,8 @@
  * @author Gary Guo <nbdd0121@hotmail.com>
  */
 
-#ifndef UNICODE_CATEGORY_H
-#define UNICODE_CATEGORY_H
+#ifndef UNICODE_TYPE_H
+#define UNICODE_TYPE_H
 
 #include "c/stdint.h"
 

@@ -1,6 +1,6 @@
-#include <string.h>
-#include <malloc.h>
-#include <stdint.h>
+#include "c/string.h"
+#include "c/stdlib.h"
+#include "c/stdint.h"
 
 #include "data-struct/hashmap.h"
 
@@ -44,7 +44,6 @@ hashmap_t *hashmap_new_string(int size) {
 
 hashmap_t *hashmap_new(hash_t h, comparator_t c, int size) {
     hashmap_t *hm = malloc(sizeof(hashmap_t) + sizeof(node_t *)*size);
-    //printf("%d",sizeof(hashmap_t)+sizeof(node_t*)*size);
     hm->compare = c;
     hm->hash = h;
     hm->size = size;

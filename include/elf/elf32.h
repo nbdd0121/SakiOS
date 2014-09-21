@@ -3,8 +3,6 @@
 
 #include "c/stdint.h"
 
-#pragma pack(1)
-
 enum {
     EI_MAG0 = 0 ,
     EI_MAG1 = 1 ,
@@ -37,7 +35,7 @@ typedef struct {
     Elf32_Half e_shentsize;
     Elf32_Half e_shnum;
     Elf32_Half e_shstrndx;
-} Elf32_Ehdr;
+}__attribute__((packed)) Elf32_Ehdr;
 
 typedef struct {
     Elf32_Word sh_name;
@@ -50,7 +48,7 @@ typedef struct {
     Elf32_Word sh_info;
     Elf32_Word sh_addralign;
     Elf32_Word sh_entsize;
-} Elf32_Shdr;
+}__attribute__((packed)) Elf32_Shdr;
 
 enum {
     SHT_SYMTAB = 2,
@@ -62,7 +60,7 @@ enum {
 typedef struct {
     Elf32_Addr r_offset;
     Elf32_Word r_info;
-} Elf32_Rel;
+}__attribute__((packed)) Elf32_Rel;
 
 typedef struct {
     Elf32_Word st_name;
@@ -71,7 +69,7 @@ typedef struct {
     uint8_t st_info;
     uint8_t st_other;
     Elf32_Half st_shndx;
-} Elf32_Sym;
+}__attribute__((packed)) Elf32_Sym;
 
 enum {
     STT_SECTION = 3

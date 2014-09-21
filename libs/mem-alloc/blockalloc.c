@@ -17,8 +17,6 @@
 #include "util/alignment.h"
 #include "util/log2.h"
 
-#pragma pack(1)
-
 enum {
     PAGE_SIZE = 4096,
     BLOCK_SIZE = sizeof(size_t) * 2,
@@ -38,7 +36,13 @@ typedef struct struct_block_t {
 } block_t;
 
 static size_t getPagePow(size_t size) {
-    return log2(alignDown(size - 1, PAGE_SIZE) / PAGE_SIZE) + 1;
+    size_t pageNum = alignTo(size, PAGE_SIZE) / PAGE_SIZE;
+    size_t numLog2 = log2(pageNum);
+    if (1 << numLog2 == pageNum) {
+        return numLog2;
+    } else {
+        return numLog2 + 1;
+    }
 }
 
 static inline block_t *nextBlock(block_t *this) {
@@ -68,8 +72,9 @@ static inline void splitBlock(block_t *first, size_t size) {
     first->size = size | 1;
     block_t *second = nextBlock(first);
     second->prev = first;
-    third->prev = first;
+    third->prev = second;
     second->size = (size_t)third - (size_t)&second->list + 1;
+    assert(nextBlock(first) == second);//TODO
 }
 
 /* Merge two *Used* block */
@@ -78,6 +83,7 @@ static void mergeBlock(block_t *first) {
     block_t *third = nextBlock(second);
     first->size += second->size + offsetof(block_t, list) - 1;
     third->prev = first;
+    assert(nextBlock(first) == third);
 }
 
 allocator_t *allocator_create(pageman_t *man) {
@@ -197,7 +203,7 @@ void *allocator_malloc(allocator_t *al, size_t size) {
     endProtect->prev = rest;
     endProtect->size = 1;
 
-    list_addFirst(&al->blocks[rest->size / BLOCK_SIZE - 1], &rest->list);
+    markFree(al, rest);
     return &firstBlock->list;
 }
 
